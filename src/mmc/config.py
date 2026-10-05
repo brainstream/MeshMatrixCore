@@ -16,5 +16,49 @@
 #                                                                                              #
 ################################################################################################
 
-class ExceptionBase(Exception):
-    ...
+import logging
+import tomllib
+from pathlib import Path
+from typing import NotRequired, TypedDict, cast
+
+
+class _MatrixConfig(TypedDict):
+    homeserver: str
+    access_token: str
+    matrix_user_id: str
+
+
+class _MeshCoreConfig(TypedDict):
+    serial_port: str
+    meshcore_user_id: str
+
+
+class _SyncConfig(TypedDict):
+    matrix_room_id: str
+    meshcore_channel_idx: int
+
+
+class Config(TypedDict):
+    matrix: _MatrixConfig
+    meshcore: _MeshCoreConfig
+    sync: list[_SyncConfig]
+    logging: NotRequired[dict[str, str]]
+
+
+def load_config() -> Config:
+    with Path("config.toml").open("rb") as config_file:
+        return cast(Config, tomllib.load(config_file))
+
+
+def configure_logging(level: str) -> None:
+    levels = {
+        name: getattr(logging, name)
+        for name in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+    }
+    numeric_level = levels.get(level.upper())
+    if numeric_level is None:
+        supported_levels = ", ".join(levels)
+        raise ValueError(
+            f"Invalid logging level {level!r}. Supported levels: {supported_levels}"
+        )
+    logging.getLogger().setLevel(numeric_level)

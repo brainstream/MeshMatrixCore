@@ -23,7 +23,7 @@ from inspect import isawaitable
 
 from meshcore import EventType, MeshCore
 
-from .message import MeshCoreMessage
+from mmc.mesh.core.message import MeshCoreMessage
 
 MessageListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
 

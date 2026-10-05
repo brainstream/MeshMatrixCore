@@ -2,8 +2,6 @@
 
 Bridge between MeshCore channels and Matrix rooms.
 
-![Screenshots](screenshots/screenshots.png)
-
 ## Docker
 
 To build the Docker image, run:
@@ -19,3 +17,16 @@ docker run --rm --device=/dev/ttyACM0:/dev/ttyACM0 --volume=./config.toml:/app/c
 ```
 
 Specify your device path and config file path as needed.
+
+## Development
+
+Install the project with its test dependencies, then run the test suite:
+
+```sh
+python -m pip install -e ".[test]"
+python -m pytest
+```
+
+Tests live in `tests/`, and pytest adds `src/` to the import path so they exercise the source package directly.
+
+![Screenshots](screenshots/screenshots.png)

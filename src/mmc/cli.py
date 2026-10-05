@@ -19,40 +19,14 @@
 import asyncio
 import logging
 import sys
-import tomllib
-from pathlib import Path
-from typing import NotRequired, TypedDict, cast
 
+from mmc.config import configure_logging, load_config
+from mmc.exceptions import ExceptionBase
 from mmc.matrix import MatrixClient
 from mmc.mesh.core import MeshCoreClient
 from mmc.synchronizer import SynchronizationRule, Synchronizer
 
-from .exceptions import ExceptionBase
-
 logger = logging.getLogger(__name__)
-
-
-class _MatrixConfig(TypedDict):
-    homeserver: str
-    access_token: str
-    matrix_user_id: str
-
-
-class _MeshCoreConfig(TypedDict):
-    serial_port: str
-    meshcore_user_id: str
-
-
-class _SyncConfig(TypedDict):
-    matrix_room_id: str
-    meshcore_channel_idx: int
-
-
-class _Config(TypedDict):
-    matrix: _MatrixConfig
-    meshcore: _MeshCoreConfig
-    sync: list[_SyncConfig]
-    logging: NotRequired[dict[str, str]]
 
 
 async def main():
@@ -61,14 +35,14 @@ async def main():
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     try:
-        config = await asyncio.to_thread(_load_config)
+        config = await asyncio.to_thread(load_config)
     except Exception:
         logger.exception("Failed to load configuration")
         raise
 
     log_level = config.get("logging", {}).get("level", "INFO")
     try:
-        _configure_logging(log_level)
+        configure_logging(log_level)
     except TypeError, ValueError:
         logger.exception("Failed to configure logging")
         raise
@@ -101,25 +75,6 @@ async def main():
         except ExceptionBase as e:
             logger.exception("Synchronization stopped because of an application error")
             print(e, file=sys.stderr)
-
-
-def _load_config() -> _Config:
-    with Path("config.toml").open("rb") as config_file:
-        return cast(_Config, tomllib.load(config_file))
-
-
-def _configure_logging(level: str) -> None:
-    levels = {
-        name: getattr(logging, name)
-        for name in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-    }
-    numeric_level = levels.get(level.upper())
-    if numeric_level is None:
-        supported_levels = ", ".join(levels)
-        raise ValueError(
-            f"Invalid logging level {level!r}. Supported levels: {supported_levels}"
-        )
-    logging.getLogger().setLevel(numeric_level)
 
 
 if __name__ == "__main__":

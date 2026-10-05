@@ -15,3 +15,9 @@
 # If not, see <http://www.gnu.org/licenses/>.                                                  #
 #                                                                                              #
 ################################################################################################
+
+
+class ExceptionBase(Exception): ...
+
+
+__all__ = ["ExceptionBase"]
