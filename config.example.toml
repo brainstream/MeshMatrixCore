@@ -1,10 +1,13 @@
+[logging]
+level = "INFO" # DEBUG, INFO, WARNING, ERROR, or CRITICAL
+
 [matrix]
 homeserver = "https://matrix.example.org"
 access_token = "YOUR_MATRIX_ACCESS_TOKEN"
 matrix_user_id = "@bot:example.org"
 
 [meshcore]
-serial_port = "/dev/ttyACM0"
+serial_port = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_44:1B:F6:6F:15:68-if00"
 meshcore_user_id = "USER_ID"
 
 [[sync]]

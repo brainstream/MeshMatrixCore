@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from dataclasses import dataclass
 
 from mmc.matrix import MatrixClient, MatrixMessage
 from mmc.mesh.core import MeshCoreClient
 from mmc.mesh.core.message import MeshCoreMessage
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,11 +35,26 @@ class Synchronizer:
             if rule.matrix_room_id != message.room.id:
                 continue
             if rule.matrix_user_id == message.sender.id:
+                logger.debug("Ignoring Matrix message sent by configured bridge user")
                 return
-            await self._meshcore.send_text(
+            logger.info(
+                "Forwarding Matrix message from %s in room %s to MeshCore channel %s",
+                message.sender.id,
+                message.room.id,
                 rule.meshcore_channel_idx,
-                f"Message from Matrix\nAuthor: {message.sender.name}\n\n{message.text}",
             )
+            try:
+                await self._meshcore.send_text(
+                    rule.meshcore_channel_idx,
+                    f"Message from Matrix\nAuthor: {message.sender.name}\n\n{message.text}",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to forward Matrix message from room %s to MeshCore channel %s",
+                    message.room.id,
+                    rule.meshcore_channel_idx,
+                )
+                raise
             return
 
     async def _on_meshcore_message(self, message: MeshCoreMessage):
@@ -44,12 +62,33 @@ class Synchronizer:
             if rule.meshcore_channel_idx != message.channel:
                 continue
             if rule.meshcore_user_id == message.sender:
+                logger.debug("Ignoring MeshCore message sent by configured bridge user")
                 return
-            await self._matrix.send_text(
+            logger.info(
+                "Forwarding MeshCore message from channel %s to Matrix room %s",
+                message.channel,
                 rule.matrix_room_id,
-                f"Message from MeshCore\nAuthor: {message.sender}\n\n{message.text}",
             )
+            try:
+                await self._matrix.send_text(
+                    rule.matrix_room_id,
+                    f"Message from MeshCore\nAuthor: {message.sender}\n\n{message.text}",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to forward MeshCore message from channel %s to Matrix room %s",
+                    message.channel,
+                    rule.matrix_room_id,
+                )
+                raise
             return
 
     async def run(self):
-        await asyncio.gather(self._matrix.run(), self._meshcore.run())
+        logger.info(
+            "Running synchronizer with %d synchronization rule(s)", len(self._rules)
+        )
+        try:
+            await asyncio.gather(self._matrix.run(), self._meshcore.run())
+        except Exception:
+            logger.exception("Synchronizer stopped after a service failure")
+            raise
