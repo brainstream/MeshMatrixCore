@@ -2,6 +2,8 @@
 
 Bridge between MeshCore channels and Matrix rooms.
 
+![Screenshots](screenshots/screenshots.png)
+
 ## Docker
 
 To build the Docker image, run:
@@ -28,5 +30,3 @@ python -m pytest
 ```
 
 Tests live in `tests/`, and pytest adds `src/` to the import path so they exercise the source package directly.
-
-![Screenshots](screenshots/screenshots.png)
