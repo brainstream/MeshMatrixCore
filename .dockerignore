@@ -1,0 +1,7 @@
+__pycache__
+.zed
+.git
+venv
+*.egg-info
+config*.toml
+README.md
