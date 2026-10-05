@@ -1,0 +1,12 @@
+[matrix]
+homeserver = "https://matrix.example.org"
+access_token = "YOUR_MATRIX_ACCESS_TOKEN"
+matrix_user_id = "@bot:example.org"
+
+[meshcore]
+serial_port = "/dev/ttyACM0"
+meshcore_user_id = "USER_ID"
+
+[[sync]]
+matrix_room_id = "!Phel3ohTh5quie7fee:example.org"
+meshcore_channel_idx = 1

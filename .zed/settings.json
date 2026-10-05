@@ -1,0 +1,7 @@
+{
+  "file_scan_exclusions": [
+    "*.egg-info",
+    "__pycache__",
+    "venv"
+  ]
+}

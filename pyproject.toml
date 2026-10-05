@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MeshMatrixCore"
+version = "0.1.0"
+description = "Bridge between MeshCore channels and Matrix rooms"
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "GPL-3.0" }
+authors = [
+  { name = "Sergey Smolyannikov aka brainstream", email = "brainstream@yandex.ru" }
+]
+dependencies = [
+    "matrix-nio>=0.26.0",
+    "meshcore>=2.3.14"
+]
+
+[project.optional-dependencies]
+debug = ["debugpy>=1.8"]
