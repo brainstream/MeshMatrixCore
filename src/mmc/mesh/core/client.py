@@ -23,10 +23,9 @@ from inspect import isawaitable
 
 from meshcore import EventType, MeshCore
 
-from mmc.mesh.core.message import MeshCoreMessage
+from mmc.mesh.core.message import MeshCoreMessage, prepare_message_for_send
 
 MessageListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
-
 logger = logging.getLogger(__name__)
 
 
@@ -55,12 +54,15 @@ class MeshCoreClient:
         logger.info("Disconnecting MeshCore client")
         await self._client.disconnect()
 
-    async def send_text(self, channel: int, text: str):
-        logger.debug("Sending MeshCore message to channel %s", channel)
+    async def send_text(self, message: MeshCoreMessage):
+        logger.debug("Sending MeshCore message to channel %s", message.channel)
         try:
-            await self._client.commands.send_chan_msg(channel, text)
+            for chunk in prepare_message_for_send(message):
+                await self._client.commands.send_chan_msg(message.channel, chunk)
         except Exception:
-            logger.exception("Failed to send MeshCore message to channel %s", channel)
+            logger.exception(
+                "Failed to send MeshCore message to channel %s", message.channel
+            )
             raise
 
     def add_message_listener(self, listener: MessageListener) -> None:

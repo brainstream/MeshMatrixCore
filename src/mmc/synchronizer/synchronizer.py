@@ -63,8 +63,11 @@ class Synchronizer:
             )
             try:
                 await self._meshcore.send_text(
-                    rule.meshcore_channel_idx,
-                    f"Message from Matrix\nAuthor: {message.sender.name}\n\n{message.text}",
+                    MeshCoreMessage(
+                        channel=rule.meshcore_channel_idx,
+                        sender=message.sender.name,
+                        text=message.text,
+                    )
                 )
             except Exception:
                 logger.exception(

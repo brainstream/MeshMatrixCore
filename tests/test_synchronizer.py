@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from mmc.mesh.core.message import MeshCoreMessage
 from mmc.synchronizer import Synchronizer
 
 
@@ -70,7 +71,7 @@ def test_forwards_matrix_message_to_matching_meshcore_channel() -> None:
     dispatch_registered_message(matrix, make_matrix_message())
 
     meshcore.send_text.assert_awaited_once_with(
-        7, "Message from Matrix\nAuthor: Alice\n\nHello from Matrix"
+        MeshCoreMessage(channel=7, sender="Alice", text="Hello from Matrix")
     )
 
 
