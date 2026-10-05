@@ -19,5 +19,4 @@
 from mmc.exceptions import ExceptionBase
 
 
-class MatrixException(ExceptionBase):
-    ...
+class MatrixException(ExceptionBase): ...

@@ -8,7 +8,7 @@
 # either version 3 of the License, or (at your option) any later version.                      #
 #                                                                                              #
 # MeshMatrixCore is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;  #
-# without even the implied warranty of  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.   #
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    #
 # See the GNU General Public License for more details.                                         #
 #                                                                                              #
 # You should have received a copy of the GNU General Public License along with MeshMatrixCore. #
@@ -17,142 +17,179 @@
 ################################################################################################
 
 import asyncio
-from collections.abc import Coroutine
-from typing import Any
-from unittest.mock import AsyncMock, Mock
+from collections.abc import Awaitable, Callable
+from typing import cast
 
 import pytest
 
-from mmc.message import MatrixMessageToSend, MeshCoreMessageToSend
-from mmc.synchronizer import Synchronizer
+from mmc.matrix import MatrixClient
+from mmc.mesh.core import MeshCoreClient
+from mmc.message import (
+    MatrixMessage,
+    MatrixMessageToSend,
+    MatrixRoom,
+    MatrixUser,
+    MeshCoreMessage,
+    MeshCoreMessageToSend,
+)
+from mmc.synchronizer import SynchronizationRule, Synchronizer
+
+MatrixListener = Callable[[MatrixMessage], Awaitable[None] | None]
+MeshCoreListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
+
+
+class _MatrixClientStub:
+    def __init__(self) -> None:
+        self.listener: MatrixListener | None = None
+        self.sent_messages: list[MatrixMessageToSend] = []
+        self.send_error: Exception | None = None
+        self.run_error: Exception | None = None
+        self.run_count: int = 0
+
+    def add_message_listener(self, listener: MatrixListener) -> None:
+        self.listener = listener
+
+    async def send_text(self, message: MatrixMessageToSend) -> None:
+        if self.send_error is not None:
+            raise self.send_error
+        self.sent_messages.append(message)
+
+    async def run(self) -> None:
+        self.run_count += 1
+        if self.run_error is not None:
+            raise self.run_error
+
+
+class _MeshCoreClientStub:
+    def __init__(self) -> None:
+        self.listener: MeshCoreListener | None = None
+        self.sent_messages: list[MeshCoreMessageToSend] = []
+        self.send_error: Exception | None = None
+        self.run_error: Exception | None = None
+        self.run_count: int = 0
+
+    def add_message_listener(self, listener: MeshCoreListener) -> None:
+        self.listener = listener
+
+    async def send_text(self, message: MeshCoreMessageToSend) -> None:
+        if self.send_error is not None:
+            raise self.send_error
+        self.sent_messages.append(message)
+
+    async def run(self) -> None:
+        self.run_count += 1
+        if self.run_error is not None:
+            raise self.run_error
 
 
 def test_registers_message_handlers_on_both_clients() -> None:
     matrix, meshcore, _ = make_synchronizer(rules=[])
 
-    matrix.add_message_listener.assert_called_once()
-    assert callable(matrix.add_message_listener.call_args.args[0])
-    meshcore.add_message_listener.assert_called_once()
-    assert callable(meshcore.add_message_listener.call_args.args[0])
+    assert matrix.listener is not None
+    assert meshcore.listener is not None
 
 
 def make_synchronizer(
-    rules: list[Any] | None = None,
-) -> tuple[Mock, Mock, Synchronizer]:
-    matrix = Mock()
-    matrix.add_message_listener = Mock()
-    matrix.send_text = AsyncMock()
-    matrix.run = AsyncMock()
-    meshcore = Mock()
-    meshcore.add_message_listener = Mock()
-    meshcore.send_text = AsyncMock()
-    meshcore.run = AsyncMock()
-
+    rules: list[SynchronizationRule] | None = None,
+) -> tuple[_MatrixClientStub, _MeshCoreClientStub, Synchronizer]:
+    matrix = _MatrixClientStub()
+    meshcore = _MeshCoreClientStub()
     synchronizer = Synchronizer(
-        matrix, meshcore, rules if rules is not None else [make_rule()]
+        cast(MatrixClient, cast(object, matrix)),
+        cast(MeshCoreClient, cast(object, meshcore)),
+        rules if rules is not None else [make_rule()],
     )
     return matrix, meshcore, synchronizer
 
 
-def make_rule(**overrides: object) -> Mock:
-    rule = Mock()
-    rule.matrix_room_id = "!room:example.org"
-    rule.matrix_user_id = "@bridge:example.org"
-    rule.meshcore_channel_idx = 7
-    rule.meshcore_user_id = "bridge-node"
-    for name, value in overrides.items():
-        setattr(rule, name, value)
-    return rule
+def make_rule() -> SynchronizationRule:
+    return SynchronizationRule(
+        matrix_room_id="!room:example.org",
+        matrix_user_id="@bridge:example.org",
+        meshcore_channel_idx=7,
+        meshcore_user_id="bridge-node",
+    )
+
+
+def dispatch_matrix_message(client: _MatrixClientStub, message: MatrixMessage) -> None:
+    assert client.listener is not None
+    result = client.listener(message)
+    if isinstance(result, Awaitable):
+        asyncio.run(result)
+
+
+def dispatch_meshcore_message(client: _MeshCoreClientStub, message: MeshCoreMessage) -> None:
+    assert client.listener is not None
+    result = client.listener(message)
+    if isinstance(result, Awaitable):
+        asyncio.run(result)
+
+
+def make_matrix_message(room_id: str = "!room:example.org", sender_id: str = "@alice:example.org") -> MatrixMessage:
+    return MatrixMessage(
+        room=MatrixRoom(id=room_id, name="Example"),
+        sender=MatrixUser(id=sender_id, name="Alice"),
+        text="Hello from Matrix",
+    )
+
+
+def make_meshcore_message(channel: int = 7, sender: str | None = "alice-node") -> MeshCoreMessage:
+    return MeshCoreMessage(channel=channel, sender=sender, text="Hello from MeshCore")
 
 
 def test_forwards_matrix_message_to_matching_meshcore_channel() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
-    dispatch_registered_message(matrix, make_matrix_message())
+    dispatch_matrix_message(matrix, make_matrix_message())
 
-    meshcore.send_text.assert_awaited_once_with(
-        MeshCoreMessageToSend(
-            channel=7,
-            chunks=["⚛ Alice\nHello from Matrix"],
-        )
-    )
-
-
-def dispatch_registered_message(client: Mock, message: Mock) -> None:
-    callback = client.add_message_listener.call_args.args[0]
-    asyncio.run(callback(message))
-
-
-def make_matrix_message(
-    room_id: str = "!room:example.org", sender_id: str = "@alice:example.org"
-) -> Mock:
-    message = Mock()
-    message.room.id = room_id
-    message.sender.id = sender_id
-    message.sender.name = "Alice"
-    message.text = "Hello from Matrix"
-    return message
+    assert meshcore.sent_messages == [MeshCoreMessageToSend(channel=7, chunks=["⚛ Alice\nHello from Matrix"])]
 
 
 def test_ignores_matrix_message_from_bridge_user() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
-    dispatch_registered_message(
-        matrix, make_matrix_message(sender_id="@bridge:example.org")
-    )
+    dispatch_matrix_message(matrix, make_matrix_message(sender_id="@bridge:example.org"))
 
-    meshcore.send_text.assert_not_awaited()
+    assert meshcore.sent_messages == []
 
 
 def test_ignores_matrix_message_without_matching_room() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
-    dispatch_registered_message(
-        matrix, make_matrix_message(room_id="!other:example.org")
-    )
+    dispatch_matrix_message(matrix, make_matrix_message(room_id="!other:example.org"))
 
-    meshcore.send_text.assert_not_awaited()
+    assert meshcore.sent_messages == []
 
 
 def test_forwards_meshcore_message_to_matching_matrix_room() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
-    dispatch_registered_message(meshcore, make_meshcore_message())
+    dispatch_meshcore_message(meshcore, make_meshcore_message())
 
-    matrix.send_text.assert_awaited_once_with(
+    assert matrix.sent_messages == [
         MatrixMessageToSend(
             room="!room:example.org",
             sender="alice-node",
             text="Hello from MeshCore",
             html="<p><strong>📟 alice-node</strong></p>\n<p>Hello from MeshCore</p>",
         )
-    )
-
-
-def make_meshcore_message(
-    channel: int = 7, sender: str | None = "alice-node"
-) -> Mock:
-    message = Mock()
-    message.channel = channel
-    message.sender = sender
-    message.text = "Hello from MeshCore"
-    return message
+    ]
 
 
 def test_ignores_meshcore_message_from_bridge_user() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
-    dispatch_registered_message(meshcore, make_meshcore_message(sender="bridge-node"))
+    dispatch_meshcore_message(meshcore, make_meshcore_message(sender="bridge-node"))
 
-    matrix.send_text.assert_not_awaited()
+    assert matrix.sent_messages == []
 
 
 def test_ignores_meshcore_message_without_matching_channel() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
-    dispatch_registered_message(meshcore, make_meshcore_message(channel=99))
+    dispatch_meshcore_message(meshcore, make_meshcore_message(channel=99))
 
-    matrix.send_text.assert_not_awaited()
+    assert matrix.sent_messages == []
 
 
 @pytest.mark.parametrize("direction", ["matrix", "meshcore"])
@@ -160,16 +197,14 @@ def test_forwarding_errors_propagate(direction: str) -> None:
     matrix, meshcore, _ = make_synchronizer()
     failure = RuntimeError("send failed")
     if direction == "matrix":
-        meshcore.send_text.side_effect = failure
-        callback = matrix.add_message_listener.call_args.args[0]
-        coroutine: Coroutine[Any, Any, None] = callback(make_matrix_message())
+        meshcore.send_error = failure
+        dispatch = lambda: dispatch_matrix_message(matrix, make_matrix_message())
     else:
-        matrix.send_text.side_effect = failure
-        callback = meshcore.add_message_listener.call_args.args[0]
-        coroutine = callback(make_meshcore_message())
+        matrix.send_error = failure
+        dispatch = lambda: dispatch_meshcore_message(meshcore, make_meshcore_message())
 
     with pytest.raises(RuntimeError, match="send failed"):
-        asyncio.run(coroutine)
+        dispatch()
 
 
 def test_run_starts_both_clients() -> None:
@@ -177,16 +212,16 @@ def test_run_starts_both_clients() -> None:
 
     asyncio.run(synchronizer.run())
 
-    matrix.run.assert_awaited_once_with()
-    meshcore.run.assert_awaited_once_with()
+    assert matrix.run_count == 1
+    assert meshcore.run_count == 1
 
 
 def test_run_propagates_client_failure() -> None:
     matrix, meshcore, synchronizer = make_synchronizer(rules=[])
-    matrix.run.side_effect = RuntimeError("client failed")
+    matrix.run_error = RuntimeError("client failed")
 
     with pytest.raises(RuntimeError, match="client failed"):
         asyncio.run(synchronizer.run())
 
-    matrix.run.assert_awaited_once_with()
-    meshcore.run.assert_awaited_once_with()
+    assert matrix.run_count == 1
+    assert meshcore.run_count == 1

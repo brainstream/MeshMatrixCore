@@ -31,9 +31,7 @@ _MESHCORE_MAX_MESSAGE_LENGTH = 143
 logger = logging.getLogger(__name__)
 
 
-def convert_matrix_message_to_meshcore(
-    message: MatrixMessage, channel: int
-) -> MeshCoreMessageToSend:
+def convert_matrix_message_to_meshcore(message: MatrixMessage, channel: int) -> MeshCoreMessageToSend:
     sender = message.sender.name
     full_text = f"⚛ {sender}\n{message.text}"
     if len(full_text.encode("utf-8")) <= _MESHCORE_MAX_MESSAGE_LENGTH:
@@ -42,25 +40,20 @@ def convert_matrix_message_to_meshcore(
         sender_length = len(sender.encode("utf-8"))
         chunk_index_length = 6  # " [x/x]"
         matrix_icon_length = 5
-        chunk_header_length = (
-            sender_length + chunk_index_length + matrix_icon_length + 1
-        )
+        chunk_header_length = sender_length + chunk_index_length + matrix_icon_length + 1
         max_chunk_count = 9
         max_chunk_length = _MESHCORE_MAX_MESSAGE_LENGTH - chunk_header_length
         text_chunks = _split_by_max_bytes(message.text, max_chunk_length)
         chunk_count = min(len(text_chunks), max_chunk_count)
         if chunk_count < len(text_chunks):
             logger.info("Message truncated to %d chunks", chunk_count)
-        chunks = [
-            f"⚛ [{i + 1}/{chunk_count}] {sender}\n{chunk}"
-            for i, chunk in enumerate(text_chunks[:chunk_count])
-        ]
+        chunks = [f"⚛ [{i + 1}/{chunk_count}] {sender}\n{chunk}" for i, chunk in enumerate(text_chunks[:chunk_count])]
     return MeshCoreMessageToSend(channel=channel, chunks=chunks)
 
 
 def _split_by_max_bytes(text: str, max_bytes: int) -> list[str]:
     encoding = "utf-8"
-    chunks = []
+    chunks: list[str] = []
     current_text = text
     while current_text:
         encoded = current_text.encode(encoding)
@@ -81,9 +74,7 @@ def _split_by_max_bytes(text: str, max_bytes: int) -> list[str]:
     return chunks
 
 
-def convert_meshcore_message_to_matrix(
-    message: MeshCoreMessage, room: str
-) -> MatrixMessageToSend:
+def convert_meshcore_message_to_matrix(message: MeshCoreMessage, room: str) -> MatrixMessageToSend:
     sender = message.sender or "unknown"
     return MatrixMessageToSend(
         room=room,

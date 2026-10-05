@@ -47,9 +47,9 @@ class Synchronizer:
         meshcore: MeshCoreClient,
         rules: list[SynchronizationRule],
     ):
-        self._matrix = matrix
-        self._meshcore = meshcore
-        self._rules = rules
+        self._matrix: MatrixClient = matrix
+        self._meshcore: MeshCoreClient = meshcore
+        self._rules: list[SynchronizationRule] = rules
         self._matrix.add_message_listener(self._on_matrix_message)
         self._meshcore.add_message_listener(self._on_meshcore_message)
 
@@ -67,11 +67,7 @@ class Synchronizer:
                 rule.meshcore_channel_idx,
             )
             try:
-                await self._meshcore.send_text(
-                    convert_matrix_message_to_meshcore(
-                        message, rule.meshcore_channel_idx
-                    )
-                )
+                await self._meshcore.send_text(convert_matrix_message_to_meshcore(message, rule.meshcore_channel_idx))
             except Exception:
                 logger.exception(
                     "Failed to forward Matrix message from room %s to MeshCore channel %s",
@@ -94,9 +90,7 @@ class Synchronizer:
                 rule.matrix_room_id,
             )
             try:
-                await self._matrix.send_text(
-                    convert_meshcore_message_to_matrix(message, rule.matrix_room_id)
-                )
+                await self._matrix.send_text(convert_meshcore_message_to_matrix(message, rule.matrix_room_id))
             except Exception:
                 logger.exception(
                     "Failed to forward MeshCore message from channel %s to Matrix room %s",
@@ -107,11 +101,9 @@ class Synchronizer:
             return
 
     async def run(self):
-        logger.info(
-            "Running synchronizer with %d synchronization rule(s)", len(self._rules)
-        )
+        logger.info("Running synchronizer with %d synchronization rule(s)", len(self._rules))
         try:
-            await asyncio.gather(self._matrix.run(), self._meshcore.run())
+            _ = await asyncio.gather(self._matrix.run(), self._meshcore.run())
         except Exception:
             logger.exception("Synchronizer stopped after a service failure")
             raise

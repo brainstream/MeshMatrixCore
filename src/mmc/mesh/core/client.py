@@ -18,12 +18,13 @@
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from inspect import isawaitable
 from types import TracebackType
+from typing import Self, cast
 
 from meshcore import EventType, MeshCore
-from meshcore.events import Event
+from meshcore.events import Event, Subscription
 
 from mmc.message.message import MeshCoreMessage, MeshCoreMessageToSend
 
@@ -35,8 +36,9 @@ class MeshCoreClient:
     def __init__(self, client: MeshCore):
         self._client: MeshCore = client
         self._message_listeners: list[MessageListener] = []
+        self._subscription: Subscription | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(
@@ -51,7 +53,11 @@ class MeshCoreClient:
     async def create(cls, serial_bus: str) -> MeshCoreClient:
         logger.info("Connecting to MeshCore device on %s", serial_bus)
         try:
-            client = await MeshCore.create_serial(serial_bus)
+            create_serial = cast(
+                Callable[[str], Coroutine[object, object, MeshCore]],
+                MeshCore.create_serial,
+            )
+            client = await create_serial(serial_bus)
         except Exception:
             logger.exception("Failed to create MeshCore client on %s", serial_bus)
             raise
@@ -65,11 +71,9 @@ class MeshCoreClient:
         logger.debug("Sending MeshCore message to channel %s", message.channel)
         try:
             for chunk in message.chunks:
-                await self._client.commands.send_chan_msg(message.channel, chunk)
+                _ = await self._client.commands.send_chan_msg(message.channel, chunk)
         except Exception:
-            logger.exception(
-                "Failed to send MeshCore message to channel %s", message.channel
-            )
+            logger.exception("Failed to send MeshCore message to channel %s", message.channel)
             raise
 
     def add_message_listener(self, listener: MessageListener) -> None:
@@ -78,7 +82,14 @@ class MeshCoreClient:
 
     async def run(self):
         logger.info("Starting MeshCore message handling")
-        self._client.subscribe(EventType.CHANNEL_MSG_RECV, self._handle_channel_msg)
+        subscribe = cast(
+            Callable[
+                [EventType, Callable[[Event], asyncio.Future[None] | None]],
+                Subscription,
+            ],
+            self._client.subscribe,
+        )
+        self._subscription = subscribe(EventType.CHANNEL_MSG_RECV, self._handle_channel_msg)
         try:
             _ = await self._client.connect()
             _ = await self._client.start_auto_message_fetching()
@@ -88,7 +99,11 @@ class MeshCoreClient:
         logger.info("MeshCore connected; automatic message fetching started")
 
     def _handle_channel_msg(self, event: Event):
-        if event.payload["type"] != "CHAN":
+        raw_payload = cast(object, event.payload)
+        if not isinstance(raw_payload, dict):
+            return
+        payload = cast(dict[str, object], raw_payload)
+        if payload.get("type") != "CHAN":
             return
         message = self._map_message_from_event(event)
         logger.debug("Received MeshCore message on channel %s", message.channel)
@@ -107,7 +122,7 @@ class MeshCoreClient:
                 raise
 
     @staticmethod
-    def _log_listener_result(task: asyncio.Future[Any]) -> None:
+    def _log_listener_result(task: asyncio.Future[None]) -> None:
         if task.cancelled():
             return
         error = task.exception()
@@ -118,11 +133,21 @@ class MeshCoreClient:
             )
 
     def _map_message_from_event(self, event: Event) -> MeshCoreMessage:
-        text: str = event.payload["text"]
+        raw_payload = cast(object, event.payload)
+        if not isinstance(raw_payload, dict):
+            raise TypeError("MeshCore event payload must be a mapping")
+        payload = cast(dict[str, object], raw_payload)
+        text_value = payload.get("text")
+        channel_value = payload.get("channel_idx")
+        if not isinstance(text_value, str):
+            raise TypeError("MeshCore channel message is missing text")
+        if not isinstance(channel_value, int):
+            raise TypeError("MeshCore channel message is missing channel_idx")
+        text = text_value
         user: str | None = None
         delimiter_idx = text.find(":")
         if delimiter_idx != -1:
             user = text[:delimiter_idx].strip()
             text = text[delimiter_idx + 1 :].strip()
-        channel: int = event.payload["channel_idx"]
+        channel = channel_value
         return MeshCoreMessage(channel=channel, sender=user, text=text)

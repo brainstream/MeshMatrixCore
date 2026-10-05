@@ -17,6 +17,7 @@
 ################################################################################################
 
 import logging
+from typing import Protocol, cast
 
 import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
@@ -24,10 +25,15 @@ from pyfakefs.fake_filesystem import FakeFilesystem
 from mmc.config import configure_logging, load_config
 
 
+class _FakeFilesystem(Protocol):
+    def create_file(self, file_path: str, *, contents: str) -> object: ...
+
+
 def test_load_config_reads_config_toml_from_current_directory(
     fs: FakeFilesystem,
 ) -> None:
-    fs.create_file(
+    fake_filesystem = cast(_FakeFilesystem, fs)
+    _ = fake_filesystem.create_file(
         "config.toml",
         contents=(
             "[logging]\n"
@@ -41,7 +47,7 @@ def test_load_config_reads_config_toml_from_current_directory(
             + 'meshcore_user_id = "bridge"\n'
             + "[[sync]]\n"
             + 'matrix_room_id = "!room:example.org"\n'
-            + 'meshcore_channel_idx = 3\n'
+            + "meshcore_channel_idx = 3\n"
         ),
     )
 

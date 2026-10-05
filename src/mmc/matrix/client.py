@@ -19,6 +19,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from inspect import isawaitable
+from types import TracebackType
 
 from nio import AsyncClient, Event, RoomMessageText, SyncError
 from nio import MatrixRoom as NioMatrixRoom
@@ -34,14 +35,19 @@ logger = logging.getLogger(__name__)
 
 class MatrixClient:
     def __init__(self, homeserver: str, token: str):
-        self._client = AsyncClient(homeserver)
+        self._client: AsyncClient = AsyncClient(homeserver)
         self._client.access_token = token
         self._message_listeners: list[MessageListener] = []
 
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         await self.close()
 
     async def close(self):
@@ -51,7 +57,7 @@ class MatrixClient:
     async def send_text(self, message: MatrixMessageToSend):
         logger.debug("Sending Matrix message to room %s", message.room)
         try:
-            await self._client.room_send(
+            _ = await self._client.room_send(
                 message.room,
                 "m.room.message",
                 {
@@ -82,9 +88,7 @@ class MatrixClient:
         self._client.add_event_callback(self._handle_message, RoomMessageText)
         logger.info("Matrix sync initialized; waiting for messages")
         try:
-            await self._client.sync_forever(
-                timeout=30000, since=first_sync_result.next_batch
-            )
+            await self._client.sync_forever(timeout=30000, since=first_sync_result.next_batch)
         except Exception:
             logger.exception("Matrix sync stopped unexpectedly")
             raise
@@ -113,9 +117,7 @@ class MatrixClient:
                 )
                 raise
 
-    def _map_message(
-        self, room: NioMatrixRoom, event: RoomMessageText
-    ) -> MatrixMessage:
+    def _map_message(self, room: NioMatrixRoom, event: RoomMessageText) -> MatrixMessage:
         return MatrixMessage(
             text=event.body,
             room=MatrixRoom(id=room.room_id, name=room.display_name),

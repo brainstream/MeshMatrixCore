@@ -19,7 +19,4 @@
 from .client import MatrixClient
 from .exceptions import MatrixException
 
-__all__ = [
-    "MatrixClient",
-    "MatrixException"
-]
+__all__ = ["MatrixClient", "MatrixException"]

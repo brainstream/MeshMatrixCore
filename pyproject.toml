@@ -28,6 +28,9 @@ test = [
 pythonpath = ["src"]
 testpaths = ["tests"]
 
+[tool.ruff]
+line-length = 120
+
 [tool.basedpyright]
 ignore = [
     "./setup.py"

@@ -51,8 +51,7 @@ def test_convert_long_utf8_matrix_message_splits_without_breaking_characters() -
 
     assert len(converted.chunks) > 1
     assert [chunk.split("\n", 1)[0] for chunk in converted.chunks] == [
-        f"⚛ [{index}/{len(converted.chunks)}] A"
-        for index in range(1, len(converted.chunks) + 1)
+        f"⚛ [{index}/{len(converted.chunks)}] A" for index in range(1, len(converted.chunks) + 1)
     ]
     assert "".join(chunk.split("\n", 1)[1] for chunk in converted.chunks) == text
     assert all(len(chunk.encode("utf-8")) <= 143 for chunk in converted.chunks)
@@ -67,9 +66,7 @@ def test_convert_long_matrix_message_preserves_text_across_chunks() -> None:
 
 
 def test_convert_long_matrix_message_is_limited_to_nine_chunks() -> None:
-    converted = convert_matrix_message_to_meshcore(
-        make_matrix_message("x" * 2_000, "A"), 3
-    )
+    converted = convert_matrix_message_to_meshcore(make_matrix_message("x" * 2_000, "A"), 3)
 
     assert len(converted.chunks) == 9
     assert converted.chunks[0].startswith("⚛ [1/9] A\n")
@@ -93,9 +90,7 @@ def test_convert_matrix_message_to_meshcore() -> None:
 
 
 def test_convert_meshcore_message_to_matrix() -> None:
-    message = MeshCoreMessage(
-        channel=7, sender="alice-node", text="Hello from MeshCore"
-    )
+    message = MeshCoreMessage(channel=7, sender="alice-node", text="Hello from MeshCore")
 
     assert convert_meshcore_message_to_matrix(message, room="!room:example.org") == (
         MatrixMessageToSend(
@@ -112,9 +107,7 @@ def test_convert_meshcore_message_to_matrix_renders_markdown() -> None:
 
     converted = convert_meshcore_message_to_matrix(message, room="!room:example.org")
 
-    assert converted.html == (
-        "<p><strong>📟 alice-node</strong></p>\n<p>Hello <strong>bold</strong></p>"
-    )
+    assert converted.html == ("<p><strong>📟 alice-node</strong></p>\n<p>Hello <strong>bold</strong></p>")
 
 
 def test_convert_meshcore_message_without_sender_to_matrix() -> None:

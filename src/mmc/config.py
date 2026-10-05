@@ -47,18 +47,13 @@ class Config(TypedDict):
 
 def load_config() -> Config:
     with Path("config.toml").open("rb") as config_file:
-        return cast(Config, tomllib.load(config_file))
+        return cast(Config, cast(object, tomllib.load(config_file)))
 
 
 def configure_logging(level: str) -> None:
-    levels = {
-        name: getattr(logging, name)
-        for name in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-    }
+    levels = {name: cast(int, getattr(logging, name)) for name in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")}
     numeric_level = levels.get(level.upper())
     if numeric_level is None:
         supported_levels = ", ".join(levels)
-        raise ValueError(
-            f"Invalid logging level {level!r}. Supported levels: {supported_levels}"
-        )
+        raise ValueError(f"Invalid logging level {level!r}. Supported levels: {supported_levels}")
     logging.getLogger().setLevel(numeric_level)
