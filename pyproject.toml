@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Bridge between MeshCore channels and Matrix rooms"
 readme = "README.md"
 requires-python = ">=3.14"
-license = { text = "GPL-3.0" }
+license = { text = "GPL-3.0-or-later" }
 authors = [
   { name = "Sergey Smolyannikov aka brainstream", email = "brainstream@yandex.ru" }
 ]
