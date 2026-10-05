@@ -23,8 +23,9 @@ from inspect import isawaitable
 from nio import AsyncClient, Event, RoomMessageText, SyncError
 from nio import MatrixRoom as NioMatrixRoom
 
+from mmc.message import MatrixMessage, MatrixMessageToSend, MatrixRoom, MatrixUser
+
 from .exceptions import MatrixException
-from .message import MatrixMessage, MatrixRoom, MatrixUser
 
 MessageListener = Callable[[MatrixMessage], Awaitable[None] | None]
 
@@ -47,14 +48,21 @@ class MatrixClient:
         logger.info("Closing Matrix client")
         await self._client.close()
 
-    async def send_text(self, room_id: str, text: str):
-        logger.debug("Sending Matrix message to room %s", room_id)
+    async def send_text(self, message: MatrixMessageToSend):
+        logger.debug("Sending Matrix message to room %s", message.room)
         try:
             await self._client.room_send(
-                room_id, "m.room.message", {"msgtype": "m.text", "body": text}
+                message.room,
+                "m.room.message",
+                {
+                    "msgtype": "m.text",
+                    "body": message.text,
+                    "format": "org.matrix.custom.html",
+                    "formatted_body": message.html,
+                },
             )
         except Exception:
-            logger.exception("Failed to send Matrix message to room %s", room_id)
+            logger.exception("Failed to send Matrix message to room %s", message.room)
             raise
 
     def add_message_listener(self, listener: MessageListener) -> None:

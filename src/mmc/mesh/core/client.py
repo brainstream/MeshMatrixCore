@@ -20,10 +20,12 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from inspect import isawaitable
+from types import TracebackType
 
 from meshcore import EventType, MeshCore
+from meshcore.events import Event
 
-from mmc.mesh.core.message import MeshCoreMessage, prepare_message_for_send
+from mmc.message.message import MeshCoreMessage, MeshCoreMessageToSend
 
 MessageListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
 logger = logging.getLogger(__name__)
@@ -31,13 +33,18 @@ logger = logging.getLogger(__name__)
 
 class MeshCoreClient:
     def __init__(self, client: MeshCore):
-        self._client = client
+        self._client: MeshCore = client
         self._message_listeners: list[MessageListener] = []
 
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
         await self.disconnect()
 
     @classmethod
@@ -54,10 +61,10 @@ class MeshCoreClient:
         logger.info("Disconnecting MeshCore client")
         await self._client.disconnect()
 
-    async def send_text(self, message: MeshCoreMessage):
+    async def send_text(self, message: MeshCoreMessageToSend):
         logger.debug("Sending MeshCore message to channel %s", message.channel)
         try:
-            for chunk in prepare_message_for_send(message):
+            for chunk in message.chunks:
                 await self._client.commands.send_chan_msg(message.channel, chunk)
         except Exception:
             logger.exception(
@@ -73,14 +80,14 @@ class MeshCoreClient:
         logger.info("Starting MeshCore message handling")
         self._client.subscribe(EventType.CHANNEL_MSG_RECV, self._handle_channel_msg)
         try:
-            await self._client.connect()
-            await self._client.start_auto_message_fetching()
+            _ = await self._client.connect()
+            _ = await self._client.start_auto_message_fetching()
         except Exception:
             logger.exception("Failed to start MeshCore message handling")
             raise
         logger.info("MeshCore connected; automatic message fetching started")
 
-    def _handle_channel_msg(self, event):
+    def _handle_channel_msg(self, event: Event):
         if event.payload["type"] != "CHAN":
             return
         message = self._map_message_from_event(event)
@@ -100,7 +107,7 @@ class MeshCoreClient:
                 raise
 
     @staticmethod
-    def _log_listener_result(task: asyncio.Future) -> None:
+    def _log_listener_result(task: asyncio.Future[Any]) -> None:
         if task.cancelled():
             return
         error = task.exception()
@@ -110,7 +117,7 @@ class MeshCoreClient:
                 exc_info=(type(error), error, error.__traceback__),
             )
 
-    def _map_message_from_event(self, event) -> MeshCoreMessage:
+    def _map_message_from_event(self, event: Event) -> MeshCoreMessage:
         text: str = event.payload["text"]
         user: str | None = None
         delimiter_idx = text.find(":")

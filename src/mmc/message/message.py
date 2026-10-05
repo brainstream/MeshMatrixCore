@@ -8,7 +8,7 @@
 # either version 3 of the License, or (at your option) any later version.                      #
 #                                                                                              #
 # MeshMatrixCore is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;  #
-# without even the implied warranty of  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.   #
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    #
 # See the GNU General Public License for more details.                                         #
 #                                                                                              #
 # You should have received a copy of the GNU General Public License along with MeshMatrixCore. #
@@ -16,10 +16,44 @@
 #                                                                                              #
 ################################################################################################
 
-from .client import MatrixClient
-from .exceptions import MatrixException
+from dataclasses import dataclass
 
-__all__ = [
-    "MatrixClient",
-    "MatrixException"
-]
+
+@dataclass
+class MeshCoreMessage:
+    channel: int
+    sender: str | None
+    text: str
+
+
+@dataclass
+class MeshCoreMessageToSend:
+    channel: int
+    chunks: list[str]
+
+
+@dataclass
+class MatrixMessage:
+    sender: MatrixUser
+    room: MatrixRoom
+    text: str
+
+
+@dataclass
+class MatrixRoom:
+    id: str
+    name: str
+
+
+@dataclass
+class MatrixUser:
+    id: str
+    name: str
+
+
+@dataclass
+class MatrixMessageToSend:
+    room: str
+    sender: str
+    text: str
+    html: str

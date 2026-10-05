@@ -20,9 +20,14 @@ import asyncio
 import logging
 from dataclasses import dataclass
 
-from mmc.matrix import MatrixClient, MatrixMessage
+from mmc.matrix import MatrixClient
 from mmc.mesh.core import MeshCoreClient
-from mmc.mesh.core.message import MeshCoreMessage
+from mmc.message import (
+    MatrixMessage,
+    MeshCoreMessage,
+    convert_matrix_message_to_meshcore,
+    convert_meshcore_message_to_matrix,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +68,8 @@ class Synchronizer:
             )
             try:
                 await self._meshcore.send_text(
-                    MeshCoreMessage(
-                        channel=rule.meshcore_channel_idx,
-                        sender=message.sender.name,
-                        text=message.text,
+                    convert_matrix_message_to_meshcore(
+                        message, rule.meshcore_channel_idx
                     )
                 )
             except Exception:
@@ -92,8 +95,7 @@ class Synchronizer:
             )
             try:
                 await self._matrix.send_text(
-                    rule.matrix_room_id,
-                    f"Message from MeshCore\nAuthor: {message.sender}\n\n{message.text}",
+                    convert_meshcore_message_to_matrix(message, rule.matrix_room_id)
                 )
             except Exception:
                 logger.exception(

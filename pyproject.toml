@@ -14,7 +14,8 @@ authors = [
 ]
 dependencies = [
     "matrix-nio>=0.26.0",
-    "meshcore>=2.3.14"
+    "meshcore>=2.3.14",
+    "markdown>=3.11"
 ]
 
 [project.optional-dependencies]
@@ -26,3 +27,9 @@ test = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.basedpyright]
+ignore = [
+    "./setup.py"
+]
+reportMissingTypeStubs = false

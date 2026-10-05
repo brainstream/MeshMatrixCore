@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from mmc.mesh.core.message import MeshCoreMessage
+from mmc.message import MatrixMessageToSend, MeshCoreMessageToSend
 from mmc.synchronizer import Synchronizer
 
 
@@ -71,7 +71,10 @@ def test_forwards_matrix_message_to_matching_meshcore_channel() -> None:
     dispatch_registered_message(matrix, make_matrix_message())
 
     meshcore.send_text.assert_awaited_once_with(
-        MeshCoreMessage(channel=7, sender="Alice", text="Hello from Matrix")
+        MeshCoreMessageToSend(
+            channel=7,
+            chunks=["⚛ Alice\nHello from Matrix"],
+        )
     )
 
 
@@ -117,12 +120,18 @@ def test_forwards_meshcore_message_to_matching_matrix_room() -> None:
     dispatch_registered_message(meshcore, make_meshcore_message())
 
     matrix.send_text.assert_awaited_once_with(
-        "!room:example.org",
-        "Message from MeshCore\nAuthor: alice-node\n\nHello from MeshCore",
+        MatrixMessageToSend(
+            room="!room:example.org",
+            sender="alice-node",
+            text="Hello from MeshCore",
+            html="<p><strong>📟 alice-node</strong></p>\n<p>Hello from MeshCore</p>",
+        )
     )
 
 
-def make_meshcore_message(channel: int = 7, sender: str = "alice-node") -> Mock:
+def make_meshcore_message(
+    channel: int = 7, sender: str | None = "alice-node"
+) -> Mock:
     message = Mock()
     message.channel = channel
     message.sender = sender

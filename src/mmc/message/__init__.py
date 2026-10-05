@@ -8,7 +8,7 @@
 # either version 3 of the License, or (at your option) any later version.                      #
 #                                                                                              #
 # MeshMatrixCore is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;  #
-# without even the implied warranty of  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.   #
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    #
 # See the GNU General Public License for more details.                                         #
 #                                                                                              #
 # You should have received a copy of the GNU General Public License along with MeshMatrixCore. #
@@ -16,23 +16,26 @@
 #                                                                                              #
 ################################################################################################
 
-from dataclasses import dataclass
+from .converters import (
+    convert_matrix_message_to_meshcore,
+    convert_meshcore_message_to_matrix,
+)
+from .message import (
+    MatrixMessage,
+    MatrixMessageToSend,
+    MatrixRoom,
+    MatrixUser,
+    MeshCoreMessage,
+    MeshCoreMessageToSend,
+)
 
-
-@dataclass
-class MatrixMessage:
-    text: str
-    room: MatrixRoom
-    sender: MatrixUser
-
-
-@dataclass
-class MatrixRoom:
-    id: str
-    name: str
-
-
-@dataclass
-class MatrixUser:
-    id: str
-    name: str
+__all__ = [
+    "MatrixMessage",
+    "MatrixMessageToSend",
+    "MatrixRoom",
+    "MatrixUser",
+    "MeshCoreMessage",
+    "MeshCoreMessageToSend",
+    "convert_matrix_message_to_meshcore",
+    "convert_meshcore_message_to_matrix",
+]
