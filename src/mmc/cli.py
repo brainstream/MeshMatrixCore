@@ -34,7 +34,7 @@ def main() -> int:
         return asyncio.run(run())
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
-        return 0
+        return 130
 
 
 async def run() -> int:
