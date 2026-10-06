@@ -16,7 +16,7 @@
 #                                                                                              #
 ################################################################################################
 
-from .client import MeshCoreClient
-from .exceptions import MeshCoreException
+from mmc.exceptions import ExceptionBase
 
-__all__ = ["MeshCoreClient", "MeshCoreException"]
+
+class MeshCoreException(ExceptionBase): ...

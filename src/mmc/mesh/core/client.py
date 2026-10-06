@@ -28,6 +28,8 @@ from meshcore.events import Event, Subscription
 
 from mmc.message.message import MeshCoreMessage, MeshCoreMessageToSend
 
+from .exceptions import MeshCoreException
+
 MessageListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
 logger = logging.getLogger(__name__)
 
@@ -52,15 +54,12 @@ class MeshCoreClient:
     @classmethod
     async def create(cls, serial_bus: str) -> MeshCoreClient:
         logger.info("Connecting to MeshCore device on %s", serial_bus)
-        try:
-            create_serial = cast(
-                Callable[[str], Coroutine[object, object, MeshCore]],
-                MeshCore.create_serial,
-            )
-            client = await create_serial(serial_bus)
-        except Exception:
-            logger.exception("Failed to create MeshCore client on %s", serial_bus)
-            raise
+        client = await cast(
+            Callable[[str], Coroutine[object, object, MeshCore | None]],
+            MeshCore.create_serial,
+        )(serial_bus)
+        if client is None:
+            raise MeshCoreException(f"Failed to create MeshCore client on {serial_bus}")
         return cls(client)
 
     async def disconnect(self):
@@ -72,9 +71,8 @@ class MeshCoreClient:
         try:
             for chunk in message.chunks:
                 _ = await self._client.commands.send_chan_msg(message.channel, chunk)
-        except Exception:
-            logger.exception("Failed to send MeshCore message to channel %s", message.channel)
-            raise
+        except Exception as err:
+            raise MeshCoreException("Failed to send MeshCore message to channel %s", message.channel) from err
 
     def add_message_listener(self, listener: MessageListener) -> None:
         self._message_listeners.append(listener)
@@ -93,9 +91,8 @@ class MeshCoreClient:
         try:
             _ = await self._client.connect()
             _ = await self._client.start_auto_message_fetching()
-        except Exception:
-            logger.exception("Failed to start MeshCore message handling")
-            raise
+        except Exception as err:
+            raise MeshCoreException("Failed to start MeshCore message handling") from err
         logger.info("MeshCore connected; automatic message fetching started")
 
     def _handle_channel_msg(self, event: Event):
@@ -113,13 +110,12 @@ class MeshCoreClient:
                 if isawaitable(result):
                     task = asyncio.ensure_future(result)
                     task.add_done_callback(self._log_listener_result)
-            except Exception:
-                logger.exception(
+            except Exception as err:
+                raise MeshCoreException(
                     "MeshCore message listener %r failed on channel %s",
                     listener,
                     message.channel,
-                )
-                raise
+                ) from err
 
     @staticmethod
     def _log_listener_result(task: asyncio.Future[None]) -> None:
@@ -135,14 +131,14 @@ class MeshCoreClient:
     def _map_message_from_event(self, event: Event) -> MeshCoreMessage:
         raw_payload = cast(object, event.payload)
         if not isinstance(raw_payload, dict):
-            raise TypeError("MeshCore event payload must be a mapping")
+            raise MeshCoreException("MeshCore event payload must be a mapping")
         payload = cast(dict[str, object], raw_payload)
         text_value = payload.get("text")
         channel_value = payload.get("channel_idx")
         if not isinstance(text_value, str):
-            raise TypeError("MeshCore channel message is missing text")
+            raise MeshCoreException("MeshCore channel message is missing text")
         if not isinstance(channel_value, int):
-            raise TypeError("MeshCore channel message is missing channel_idx")
+            raise MeshCoreException("MeshCore channel message is missing channel_idx")
         text = text_value
         user: str | None = None
         delimiter_idx = text.find(":")

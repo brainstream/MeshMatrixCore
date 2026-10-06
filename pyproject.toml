@@ -19,6 +19,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+debug = [
+    "debugpy>=1.8.22"
+]
 test = [
     "pytest>=9.1",
     "pyfakefs>=6.2",

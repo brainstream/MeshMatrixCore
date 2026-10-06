@@ -22,10 +22,10 @@ Specify your device path and config file path as needed.
 
 ## Development
 
-Install the project with its test dependencies, then run the test suite:
+Install the project with its test debug and dependencies, then run the test suite:
 
 ```sh
-python -m pip install -e ".[test]"
+python -m pip install -e ".[test,debug]"
 python -m pytest
 ```
 

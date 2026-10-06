@@ -1,7 +1,7 @@
 __pycache__
 .zed
 .git
-venv
+.venv
 *.egg-info
 config*.toml
 README.md
