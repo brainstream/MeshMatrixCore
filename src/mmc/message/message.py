@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from markdown import markdown
 
 _MESHCORE_MAX_MESSAGE_LENGTH = 143
+_MESHCORE_MAX_SENDER_NAME_LENGTH = 24
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +40,7 @@ class MeshCoreMessageToSend:
 
     @classmethod
     def from_matrix_message(cls, message: MatrixMessage, channel: int) -> MeshCoreMessageToSend:
-        sender = message.sender.name
+        sender = cls._truncate_sender(message.sender.name)
         matrix_icon = "⚛ "
         full_text = f"{matrix_icon}{sender}\n{message.text}"
         if len(_MeshCoreTextEncoder.encode(full_text)) <= _MESHCORE_MAX_MESSAGE_LENGTH:
@@ -60,6 +61,13 @@ class MeshCoreMessageToSend:
                 for i, chunk in enumerate(text_chunks[:chunk_count])
             ]
         return cls(channel=channel, chunks=chunks)
+
+    @staticmethod
+    def _truncate_sender(sender: str) -> str:
+        encoded_sender = _MeshCoreTextEncoder.encode(sender)
+        if len(encoded_sender) > _MESHCORE_MAX_SENDER_NAME_LENGTH:
+            return _MeshCoreTextEncoder.decode(encoded_sender[:_MESHCORE_MAX_SENDER_NAME_LENGTH]) + "…"
+        return sender
 
     @classmethod
     def _split_by_max_bytes(cls, text: str, max_bytes: int) -> list[str]:

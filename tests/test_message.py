@@ -43,6 +43,19 @@ def make_matrix_message(text: str, sender: str = "Alice") -> MatrixMessage:
     )
 
 
+def test_convert_long_sender_matrix_message_preserves_text_within_frame_limit() -> None:
+    text = "message " * 30
+    sender = "🙂" * 40
+    expected_sender = "🙂" * 6 + "…"
+
+    converted = MeshCoreMessageToSend.from_matrix_message(make_matrix_message(text, sender), 3)
+
+    assert len(converted.chunks) > 1
+    assert converted.chunks[0].startswith(f"⚛ [1/{len(converted.chunks)}] {expected_sender}\n")
+    assert "".join(chunk.split("\n", 1)[1] for chunk in converted.chunks) == text
+    assert all(len(chunk.encode("utf-8")) <= 143 for chunk in converted.chunks)
+
+
 def test_convert_long_utf8_matrix_message_splits_without_breaking_characters() -> None:
     text = "🙂" * 80
     converted = MeshCoreMessageToSend.from_matrix_message(make_matrix_message(text, "A"), 3)
