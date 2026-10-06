@@ -89,7 +89,6 @@ class MeshCoreClient:
         )
         self._subscription = subscribe(EventType.CHANNEL_MSG_RECV, self._handle_channel_msg)
         try:
-            _ = await self._client.connect()
             _ = await self._client.start_auto_message_fetching()
         except Exception as err:
             raise MeshCoreException("Failed to start MeshCore message handling") from err
