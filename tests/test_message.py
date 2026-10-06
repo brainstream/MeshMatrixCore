@@ -23,13 +23,11 @@ from mmc.message import (
     MatrixUser,
     MeshCoreMessage,
     MeshCoreMessageToSend,
-    convert_matrix_message_to_meshcore,
-    convert_meshcore_message_to_matrix,
 )
 
 
 def test_convert_short_matrix_message_for_send() -> None:
-    converted = convert_matrix_message_to_meshcore(make_matrix_message("Hello"), 3)
+    converted = MeshCoreMessageToSend.from_matrix_message(make_matrix_message("Hello"), 3)
 
     assert converted == MeshCoreMessageToSend(
         channel=3,
@@ -47,7 +45,7 @@ def make_matrix_message(text: str, sender: str = "Alice") -> MatrixMessage:
 
 def test_convert_long_utf8_matrix_message_splits_without_breaking_characters() -> None:
     text = "🙂" * 80
-    converted = convert_matrix_message_to_meshcore(make_matrix_message(text, "A"), 3)
+    converted = MeshCoreMessageToSend.from_matrix_message(make_matrix_message(text, "A"), 3)
 
     assert len(converted.chunks) > 1
     assert [chunk.split("\n", 1)[0] for chunk in converted.chunks] == [
@@ -59,14 +57,14 @@ def test_convert_long_utf8_matrix_message_splits_without_breaking_characters() -
 
 def test_convert_long_matrix_message_preserves_text_across_chunks() -> None:
     text = "A message with spaces, punctuation, and words. " * 8
-    converted = convert_matrix_message_to_meshcore(make_matrix_message(text), 3)
+    converted = MeshCoreMessageToSend.from_matrix_message(make_matrix_message(text), 3)
 
     assert len(converted.chunks) > 1
     assert "".join(chunk.split("\n", 1)[1] for chunk in converted.chunks) == text
 
 
 def test_convert_long_matrix_message_is_limited_to_nine_chunks() -> None:
-    converted = convert_matrix_message_to_meshcore(make_matrix_message("x" * 2_000, "A"), 3)
+    converted = MeshCoreMessageToSend.from_matrix_message(make_matrix_message("x" * 2_000, "A"), 3)
 
     assert len(converted.chunks) == 9
     assert converted.chunks[0].startswith("⚛ [1/9] A\n")
@@ -81,7 +79,7 @@ def test_convert_matrix_message_to_meshcore() -> None:
         sender=MatrixUser(id="@alice:example.org", name="Alice"),
     )
 
-    assert convert_matrix_message_to_meshcore(message, channel=7) == (
+    assert MeshCoreMessageToSend.from_matrix_message(message, channel=7) == (
         MeshCoreMessageToSend(
             channel=7,
             chunks=["⚛ Alice\nHello from Matrix"],
@@ -92,20 +90,18 @@ def test_convert_matrix_message_to_meshcore() -> None:
 def test_convert_meshcore_message_to_matrix() -> None:
     message = MeshCoreMessage(channel=7, sender="alice-node", text="Hello from MeshCore")
 
-    assert convert_meshcore_message_to_matrix(message, room="!room:example.org") == (
-        MatrixMessageToSend(
-            room="!room:example.org",
-            sender="alice-node",
-            text="Hello from MeshCore",
-            html="<p><strong>📟 alice-node</strong></p>\n<p>Hello from MeshCore</p>",
-        )
+    assert MatrixMessageToSend.from_meshcore_message(message, room="!room:example.org") == MatrixMessageToSend(
+        room="!room:example.org",
+        sender="alice-node",
+        text="Hello from MeshCore",
+        html="<p><strong>📟 alice-node</strong></p>\n<p>Hello from MeshCore</p>",
     )
 
 
 def test_convert_meshcore_message_to_matrix_renders_markdown() -> None:
     message = MeshCoreMessage(channel=7, sender="alice-node", text="Hello **bold**")
 
-    converted = convert_meshcore_message_to_matrix(message, room="!room:example.org")
+    converted = MatrixMessageToSend.from_meshcore_message(message, room="!room:example.org")
 
     assert converted.html == ("<p><strong>📟 alice-node</strong></p>\n<p>Hello <strong>bold</strong></p>")
 
@@ -113,7 +109,7 @@ def test_convert_meshcore_message_to_matrix_renders_markdown() -> None:
 def test_convert_meshcore_message_without_sender_to_matrix() -> None:
     message = MeshCoreMessage(channel=7, sender=None, text="Hello from MeshCore")
 
-    assert convert_meshcore_message_to_matrix(message, room="!room:example.org") == (
+    assert MatrixMessageToSend.from_meshcore_message(message, room="!room:example.org") == (
         MatrixMessageToSend(
             room="!room:example.org",
             sender="unknown",

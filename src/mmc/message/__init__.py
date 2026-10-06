@@ -16,10 +16,7 @@
 #                                                                                              #
 ################################################################################################
 
-from .converters import (
-    convert_matrix_message_to_meshcore,
-    convert_meshcore_message_to_matrix,
-)
+
 from .message import (
     MatrixMessage,
     MatrixMessageToSend,
@@ -36,6 +33,4 @@ __all__ = [
     "MatrixUser",
     "MeshCoreMessage",
     "MeshCoreMessageToSend",
-    "convert_matrix_message_to_meshcore",
-    "convert_meshcore_message_to_matrix",
 ]

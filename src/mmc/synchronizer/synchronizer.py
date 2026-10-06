@@ -24,9 +24,9 @@ from mmc.matrix import MatrixClient
 from mmc.mesh.core import MeshCoreClient
 from mmc.message import (
     MatrixMessage,
+    MatrixMessageToSend,
     MeshCoreMessage,
-    convert_matrix_message_to_meshcore,
-    convert_meshcore_message_to_matrix,
+    MeshCoreMessageToSend,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,9 @@ class Synchronizer:
                 rule.meshcore_channel_idx,
             )
             try:
-                await self._meshcore.send_text(convert_matrix_message_to_meshcore(message, rule.meshcore_channel_idx))
+                await self._meshcore.send_text(
+                    MeshCoreMessageToSend.from_matrix_message(message, rule.meshcore_channel_idx)
+                )
             except Exception:
                 logger.exception(
                     "Failed to forward Matrix message from room %s to MeshCore channel %s",
@@ -90,7 +92,7 @@ class Synchronizer:
                 rule.matrix_room_id,
             )
             try:
-                await self._matrix.send_text(convert_meshcore_message_to_matrix(message, rule.matrix_room_id))
+                await self._matrix.send_text(MatrixMessageToSend.from_meshcore_message(message, rule.matrix_room_id))
             except Exception:
                 logger.exception(
                     "Failed to forward MeshCore message from channel %s to Matrix room %s",

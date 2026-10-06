@@ -16,7 +16,13 @@
 #                                                                                              #
 ################################################################################################
 
+import logging
 from dataclasses import dataclass
+
+from markdown import markdown
+
+_MESHCORE_MAX_MESSAGE_LENGTH = 143
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -30,6 +36,64 @@ class MeshCoreMessage:
 class MeshCoreMessageToSend:
     channel: int
     chunks: list[str]
+
+    @classmethod
+    def from_matrix_message(cls, message: MatrixMessage, channel: int) -> MeshCoreMessageToSend:
+        sender = message.sender.name
+        matrix_icon = "⚛ "
+        full_text = f"{matrix_icon}{sender}\n{message.text}"
+        if len(_MeshCoreTextEncoder.encode(full_text)) <= _MESHCORE_MAX_MESSAGE_LENGTH:
+            chunks = [full_text]
+        else:
+            sender_length = len(_MeshCoreTextEncoder.encode(sender))
+            chunk_index_length = 6  # " [x/x]"
+            matrix_icon_length = 5
+            chunk_header_length = sender_length + chunk_index_length + matrix_icon_length + 1
+            max_chunk_count = 9
+            max_chunk_length = _MESHCORE_MAX_MESSAGE_LENGTH - chunk_header_length
+            text_chunks = cls._split_by_max_bytes(message.text, max_chunk_length)
+            chunk_count = min(len(text_chunks), max_chunk_count)
+            if chunk_count < len(text_chunks):
+                logger.info("Message truncated to %d chunks", chunk_count)
+            chunks = [
+                f"{matrix_icon}[{i + 1}/{chunk_count}] {sender}\n{chunk}"
+                for i, chunk in enumerate(text_chunks[:chunk_count])
+            ]
+        return cls(channel=channel, chunks=chunks)
+
+    @classmethod
+    def _split_by_max_bytes(cls, text: str, max_bytes: int) -> list[str]:
+        chunks: list[str] = []
+        current_text = text
+        while current_text:
+            encoded = _MeshCoreTextEncoder.encode(current_text)
+            if len(encoded) <= max_bytes:
+                chunks.append(current_text)
+                break
+            byte_slice = encoded[:max_bytes]
+            candidate = _MeshCoreTextEncoder.decode(byte_slice)
+            last_space = candidate.rfind(" ")
+            if last_space != -1:
+                chunks.append(candidate[: last_space + 1])
+                current_text = current_text[last_space + 1 :]
+            else:
+                if not candidate:
+                    break
+                chunks.append(candidate)
+                current_text = current_text[len(candidate) :]
+        return chunks
+
+
+class _MeshCoreTextEncoder:
+    _encoding: str = "utf-8"
+
+    @classmethod
+    def encode(cls, text: str) -> bytes:
+        return text.encode(cls._encoding)
+
+    @classmethod
+    def decode(cls, bytes: bytes) -> str:
+        return bytes.decode(cls._encoding, errors="ignore")
 
 
 @dataclass
@@ -57,3 +121,13 @@ class MatrixMessageToSend:
     sender: str
     text: str
     html: str
+
+    @classmethod
+    def from_meshcore_message(cls, message: MeshCoreMessage, room: str) -> MatrixMessageToSend:
+        sender = message.sender or "unknown"
+        return cls(
+            room=room,
+            sender=sender,
+            text=message.text,
+            html=markdown(f"**📟 {sender}**\n\n{message.text}"),
+        )
