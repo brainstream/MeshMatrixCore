@@ -29,7 +29,15 @@ from mmc.synchronizer import SynchronizationRule, Synchronizer
 logger = logging.getLogger(__name__)
 
 
-async def main():
+def main() -> int:
+    try:
+        return asyncio.run(run())
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user")
+        return 0
+
+
+async def run() -> int:
     logging.basicConfig(
         level=logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -38,14 +46,14 @@ async def main():
         config = await asyncio.to_thread(load_config)
     except Exception:
         logger.exception("Failed to load configuration")
-        raise
+        return 78
 
     log_level = config.get("logging", {}).get("level", "INFO")
     try:
         configure_logging(log_level)
     except TypeError, ValueError:
         logger.exception("Failed to configure logging")
-        raise
+        return 78
     logger.info("Logging configured at %s level", log_level.upper())
 
     matrix_config = config["matrix"]
@@ -70,10 +78,12 @@ async def main():
         try:
             logger.info("Starting Matrix and MeshCore synchronization")
             await synchronizer.run()
-        except ExceptionBase as e:
+        except ExceptionBase:
             logger.exception("Synchronization stopped because of an application error")
-            print(e, file=sys.stderr)
+            return 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    sys.exit(main())
