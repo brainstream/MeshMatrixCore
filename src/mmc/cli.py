@@ -51,7 +51,7 @@ async def run() -> int:
     log_level = config.get("logging", {}).get("level", "INFO")
     try:
         configure_logging(log_level)
-    except TypeError, ValueError:
+    except ValueError:
         logger.exception("Failed to configure logging")
         return 78
     logger.info("Logging configured at %s level", log_level.upper())
@@ -83,7 +83,3 @@ async def run() -> int:
             return 1
 
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

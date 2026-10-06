@@ -48,7 +48,7 @@ class MeshCoreClient:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ) -> bool | None:
+    ) -> None:
         await self.disconnect()
 
     @classmethod
