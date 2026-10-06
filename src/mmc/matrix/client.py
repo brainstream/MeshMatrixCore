@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 
 
 class MatrixClient:
-    def __init__(self, homeserver: str, token: str):
-        self._client: AsyncClient = AsyncClient(homeserver)
-        self._client.access_token = token
+    def __init__(self, client: AsyncClient, access_token: str):
+        self._client: AsyncClient = client
+        self._client.access_token = access_token
         self._message_listeners: list[MessageListener] = []
 
     async def __aenter__(self):
@@ -50,6 +50,11 @@ class MatrixClient:
         exc_tb: TracebackType | None,
     ) -> None:
         await self.close()
+
+    @classmethod
+    async def create(cls, homeserver: str, access_token: str) -> MatrixClient:
+        logger.info("Creating Matrix client for %s", homeserver)
+        return cls(AsyncClient(homeserver), access_token)
 
     async def close(self):
         logger.info("Closing Matrix client")

@@ -18,7 +18,6 @@
 
 import asyncio
 import logging
-import sys
 
 from mmc.config import configure_logging, load_config
 from mmc.exceptions import ExceptionBase
@@ -71,7 +70,7 @@ async def run() -> int:
     logger.info("Loaded %d synchronization rule(s)", len(rules))
 
     async with (
-        MatrixClient(matrix_config["homeserver"], matrix_config["access_token"]) as matrix,
+        await MatrixClient.create(matrix_config["homeserver"], matrix_config["access_token"]) as matrix,
         await MeshCoreClient.create(meshcore_config["serial_port"]) as meshcore,
     ):
         synchronizer = Synchronizer(matrix, meshcore, rules)
