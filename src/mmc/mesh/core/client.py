@@ -103,6 +103,9 @@ class MeshCoreClient:
         if payload.get("type") != "CHAN":
             return
         message = self._map_message_from_event(event)
+        if message is None:
+            logger.warning("Received invalid MeshCore message")
+            return
         logger.debug("Received MeshCore message on channel %s", message.channel)
         for listener in self._message_listeners:
             try:
@@ -128,7 +131,7 @@ class MeshCoreClient:
                 exc_info=(type(error), error, error.__traceback__),
             )
 
-    def _map_message_from_event(self, event: Event) -> MeshCoreMessage:
+    def _map_message_from_event(self, event: Event) -> MeshCoreMessage | None:
         raw_payload = cast(object, event.payload)
         if not isinstance(raw_payload, dict):
             raise MeshCoreException("MeshCore event payload must be a mapping")
@@ -139,11 +142,10 @@ class MeshCoreClient:
             raise MeshCoreException("MeshCore channel message is missing text")
         if not isinstance(channel_value, int):
             raise MeshCoreException("MeshCore channel message is missing channel_idx")
-        text = text_value
-        user: str | None = None
-        delimiter_idx = text.find(":")
-        if delimiter_idx != -1:
-            user = text[:delimiter_idx].strip()
-            text = text[delimiter_idx + 1 :].strip()
-        channel = channel_value
-        return MeshCoreMessage(channel=channel, sender=user, text=text)
+        # Protocol does not include sender name for channel messages, so we extract it from the text
+        sender, separator, body = text_value.rstrip("\x00").partition(": ")
+        return (
+            MeshCoreMessage(channel=channel_value, sender=sender.strip(), text=body.strip())
+            if sender and separator and body
+            else None
+        )
