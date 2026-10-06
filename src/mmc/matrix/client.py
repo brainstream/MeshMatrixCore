@@ -23,6 +23,7 @@ from types import TracebackType
 
 from nio import AsyncClient, Event, RoomMessageText, SyncError
 from nio import MatrixRoom as NioMatrixRoom
+from nio.responses import RoomSendError
 
 from mmc.message import MatrixMessage, MatrixMessageToSend, MatrixRoom, MatrixUser
 
@@ -57,7 +58,7 @@ class MatrixClient:
     async def send_text(self, message: MatrixMessageToSend):
         logger.debug("Sending Matrix message to room %s", message.room)
         try:
-            _ = await self._client.room_send(
+            result = await self._client.room_send(
                 message.room,
                 "m.room.message",
                 {
@@ -67,9 +68,10 @@ class MatrixClient:
                     "formatted_body": message.html,
                 },
             )
-        except Exception:
-            logger.exception("Failed to send Matrix message to room %s", message.room)
-            raise
+        except Exception as err:
+            raise MatrixException("Failed to send Matrix message") from err
+        if isinstance(result, RoomSendError):
+            raise MatrixException(f"Failed to send Matrix message: {result}")
 
     def add_message_listener(self, listener: MessageListener) -> None:
         self._message_listeners.append(listener)
@@ -79,9 +81,8 @@ class MatrixClient:
         logger.info("Starting Matrix synchronization")
         try:
             first_sync_result = await self._client.sync(timeout=30000)
-        except Exception:
-            logger.exception("Initial Matrix sync request failed")
-            raise
+        except Exception as err:
+            raise MatrixException("Initial Matrix sync request failed") from err
         if isinstance(first_sync_result, SyncError):
             logger.error("Initial Matrix sync failed: %s", first_sync_result)
             raise MatrixException(f"First sync error: {first_sync_result}")
@@ -89,9 +90,8 @@ class MatrixClient:
         logger.info("Matrix sync initialized; waiting for messages")
         try:
             await self._client.sync_forever(timeout=30000, since=first_sync_result.next_batch)
-        except Exception:
-            logger.exception("Matrix sync stopped unexpectedly")
-            raise
+        except Exception as err:
+            raise MatrixException("Matrix sync stopped unexpectedly") from err
 
     async def _handle_message(self, room: NioMatrixRoom, event: Event) -> None:
         if not isinstance(event, RoomMessageText):
@@ -109,13 +109,13 @@ class MatrixClient:
                 result = listener(message)
                 if isawaitable(result):
                     await result
-            except Exception:
-                logger.exception(
+            except Exception as err:
+                logger.error(
                     "Matrix message listener %r failed for room %s",
                     listener,
                     message.room.id,
+                    exc_info=err,
                 )
-                raise
 
     def _map_message(self, room: NioMatrixRoom, event: RoomMessageText) -> MatrixMessage:
         return MatrixMessage(
