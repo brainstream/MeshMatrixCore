@@ -48,7 +48,7 @@ class MeshCoreMessageToSend:
         else:
             sender_length = len(_MeshCoreTextEncoder.encode(sender))
             chunk_index_length = 6  # " [x/x]"
-            matrix_icon_length = 5
+            matrix_icon_length = len(_MeshCoreTextEncoder.encode(matrix_icon))
             chunk_header_length = sender_length + chunk_index_length + matrix_icon_length + 1
             max_chunk_count = 9
             max_chunk_length = _MESHCORE_MAX_MESSAGE_LENGTH - chunk_header_length

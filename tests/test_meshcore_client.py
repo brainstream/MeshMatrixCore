@@ -115,25 +115,24 @@ def test_create_raises_when_serial_client_is_missing(monkeypatch: pytest.MonkeyP
         _ = asyncio.run(MeshCoreClient.create("/dev/ttyUSB0"))
 
 
-def test_run_subscribes_connects_and_starts_fetching() -> None:
+def test_run_subscribes_and_starts_fetching_without_extra_connect() -> None:
     harness = make_harness()
 
     asyncio.run(harness.start())
 
     assert len(harness.meshcore.callbacks) == 1
-    assert harness.meshcore.connect_count == 1
+    assert harness.meshcore.connect_count == 0
     assert harness.meshcore.fetch_count == 1
 
 
-def test_run_wraps_connection_failure() -> None:
+def test_run_does_not_fail_on_unused_connection_error() -> None:
     harness = make_harness()
     harness.meshcore.connect_error = RuntimeError("connection failed")
 
-    with pytest.raises(MeshCoreException, match="Failed to start MeshCore message handling") as error:
-        asyncio.run(harness.start())
+    asyncio.run(harness.start())
 
-    assert isinstance(error.value.__cause__, RuntimeError)
-    assert harness.meshcore.fetch_count == 0
+    assert harness.meshcore.connect_count == 0
+    assert harness.meshcore.fetch_count == 1
 
 
 def test_run_wraps_message_fetch_failure() -> None:
@@ -144,7 +143,7 @@ def test_run_wraps_message_fetch_failure() -> None:
         asyncio.run(harness.start())
 
     assert isinstance(error.value.__cause__, RuntimeError)
-    assert harness.meshcore.connect_count == 1
+    assert harness.meshcore.connect_count == 0
     assert harness.meshcore.fetch_count == 1
 
 
