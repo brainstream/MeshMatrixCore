@@ -8,7 +8,7 @@
 # either version 3 of the License, or (at your option) any later version.                      #
 #                                                                                              #
 # MeshMatrixCore is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;  #
-# without even the implied warranty of  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.   #
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    #
 # See the GNU General Public License for more details.                                         #
 #                                                                                              #
 # You should have received a copy of the GNU General Public License along with MeshMatrixCore. #
@@ -16,9 +16,22 @@
 #                                                                                              #
 ################################################################################################
 
-from .synchronizer import SynchronizationRule, Synchronizer
+from .abstract_rule import IngoingMessage, MessageGuardRule, OutgoingMessage
 
-__all__ = [
-    "SynchronizationRule",
-    "Synchronizer",
-]
+
+class MessageGuard:
+    def __init__(self) -> None:
+        self._rules: list[MessageGuardRule] = []
+
+    def add_rule(self, rule: MessageGuardRule) -> None:
+        self._rules.append(rule)
+
+    def store_outgoing_message(self, message: OutgoingMessage) -> None:
+        for rule in self._rules:
+            rule.store_outgoing_message(message)
+
+    def can_process_ingoing_message(self, message: IngoingMessage) -> bool:
+        for rule in self._rules:
+            if not rule.can_process_ingoing_message(message):
+                return False
+        return True

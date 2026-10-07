@@ -26,7 +26,7 @@ _MESHCORE_MAX_SENDER_NAME_LENGTH = 24
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class MeshCoreMessage:
     channel: int
     sender: str | None
@@ -104,20 +104,20 @@ class _MeshCoreTextEncoder:
         return bytes.decode(cls._encoding, errors="ignore")
 
 
-@dataclass
+@dataclass(frozen=True)
 class MatrixMessage:
     sender: MatrixUser
     room: MatrixRoom
     text: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class MatrixRoom:
     id: str
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class MatrixUser:
     id: str
     name: str
@@ -136,6 +136,6 @@ class MatrixMessageToSend:
         return cls(
             room=room,
             sender=sender,
-            text=message.text,
+            text=f"📟 {sender}\n{message.text}",
             html=markdown(f"**📟 {sender}**\n\n{message.text}"),
         )

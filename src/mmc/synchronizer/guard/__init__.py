@@ -8,7 +8,7 @@
 # either version 3 of the License, or (at your option) any later version.                      #
 #                                                                                              #
 # MeshMatrixCore is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;  #
-# without even the implied warranty of  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.   #
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    #
 # See the GNU General Public License for more details.                                         #
 #                                                                                              #
 # You should have received a copy of the GNU General Public License along with MeshMatrixCore. #
@@ -16,9 +16,16 @@
 #                                                                                              #
 ################################################################################################
 
-from .synchronizer import SynchronizationRule, Synchronizer
+from .abstract_rule import IngoingMessage, MessageGuardRule, OutgoingMessage
+from .guard import MessageGuard
+from .hash_based_rule import HashBasedMessageGuardRule
+from .sender_based_rule import SenderBasedMessageGuardRule
 
 __all__ = [
-    "SynchronizationRule",
-    "Synchronizer",
+    "HashBasedMessageGuardRule",
+    "IngoingMessage",
+    "MessageGuard",
+    "MessageGuardRule",
+    "OutgoingMessage",
+    "SenderBasedMessageGuardRule",
 ]

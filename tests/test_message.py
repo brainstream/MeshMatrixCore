@@ -106,7 +106,7 @@ def test_convert_meshcore_message_to_matrix() -> None:
     assert MatrixMessageToSend.from_meshcore_message(message, room="!room:example.org") == MatrixMessageToSend(
         room="!room:example.org",
         sender="alice-node",
-        text="Hello from MeshCore",
+        text="📟 alice-node\nHello from MeshCore",
         html="<p><strong>📟 alice-node</strong></p>\n<p>Hello from MeshCore</p>",
     )
 
@@ -126,7 +126,7 @@ def test_convert_meshcore_message_without_sender_to_matrix() -> None:
         MatrixMessageToSend(
             room="!room:example.org",
             sender="unknown",
-            text="Hello from MeshCore",
+            text="📟 unknown\nHello from MeshCore",
             html="<p><strong>📟 unknown</strong></p>\n<p>Hello from MeshCore</p>",
         )
     )

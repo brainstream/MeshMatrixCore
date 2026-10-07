@@ -22,12 +22,9 @@ from dataclasses import dataclass
 
 from mmc.matrix import MatrixClient
 from mmc.mesh.core import MeshCoreClient
-from mmc.message import (
-    MatrixMessage,
-    MatrixMessageToSend,
-    MeshCoreMessage,
-    MeshCoreMessageToSend,
-)
+from mmc.message import MatrixMessage, MatrixMessageToSend, MeshCoreMessage, MeshCoreMessageToSend
+
+from .guard import MessageGuard
 
 logger = logging.getLogger(__name__)
 
@@ -35,30 +32,26 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SynchronizationRule:
     matrix_room_id: str
-    matrix_user_id: str
     meshcore_channel_idx: int
-    meshcore_user_id: str
 
 
 class Synchronizer:
     def __init__(
-        self,
-        matrix: MatrixClient,
-        meshcore: MeshCoreClient,
-        rules: list[SynchronizationRule],
+        self, matrix: MatrixClient, meshcore: MeshCoreClient, rules: list[SynchronizationRule], guard: MessageGuard
     ):
         self._matrix: MatrixClient = matrix
         self._meshcore: MeshCoreClient = meshcore
         self._rules: list[SynchronizationRule] = rules
         self._matrix.add_message_listener(self._on_matrix_message)
         self._meshcore.add_message_listener(self._on_meshcore_message)
+        self._guard: MessageGuard = guard
 
     async def _on_matrix_message(self, message: MatrixMessage):
         for rule in self._rules:
             if rule.matrix_room_id != message.room.id:
                 continue
-            if rule.matrix_user_id == message.sender.id:
-                logger.debug("Ignoring Matrix message sent by configured bridge user")
+            if not self._guard.can_process_ingoing_message(message):
+                logger.debug("The Matrix message is ignored due to a guard condition")
                 return
             logger.info(
                 "Forwarding Matrix message from %s in room %s to MeshCore channel %s",
@@ -67,9 +60,9 @@ class Synchronizer:
                 rule.meshcore_channel_idx,
             )
             try:
-                await self._meshcore.send_text(
-                    MeshCoreMessageToSend.from_matrix_message(message, rule.meshcore_channel_idx)
-                )
+                outgoing_message = MeshCoreMessageToSend.from_matrix_message(message, rule.meshcore_channel_idx)
+                await self._meshcore.send_text(outgoing_message)
+                self._guard.store_outgoing_message(outgoing_message)
             except Exception:
                 logger.exception(
                     "Failed to forward Matrix message from room %s to MeshCore channel %s",
@@ -83,8 +76,8 @@ class Synchronizer:
         for rule in self._rules:
             if rule.meshcore_channel_idx != message.channel:
                 continue
-            if rule.meshcore_user_id == message.sender:
-                logger.debug("Ignoring MeshCore message sent by configured bridge user")
+            if not self._guard.can_process_ingoing_message(message):
+                logger.debug("The MeshCore message is ignored due to a guard condition")
                 return
             logger.info(
                 "Forwarding MeshCore message from channel %s to Matrix room %s",
@@ -92,7 +85,9 @@ class Synchronizer:
                 rule.matrix_room_id,
             )
             try:
-                await self._matrix.send_text(MatrixMessageToSend.from_meshcore_message(message, rule.matrix_room_id))
+                outgoing_message = MatrixMessageToSend.from_meshcore_message(message, rule.matrix_room_id)
+                await self._matrix.send_text(outgoing_message)
+                self._guard.store_outgoing_message(outgoing_message)
             except Exception:
                 logger.exception(
                     "Failed to forward MeshCore message from channel %s to Matrix room %s",

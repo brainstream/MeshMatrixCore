@@ -15,7 +15,8 @@ authors = [
 dependencies = [
     "matrix-nio>=0.26.0",
     "meshcore>=2.3.14",
-    "markdown>=3.11"
+    "markdown>=3.11",
+    "cachetools>=7.2.1"
 ]
 
 [project.optional-dependencies]
