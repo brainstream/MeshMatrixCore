@@ -17,6 +17,7 @@
 ################################################################################################
 
 import logging
+from pathlib import Path
 from typing import Protocol, cast
 
 import pytest
@@ -66,7 +67,7 @@ def test_load_config_reads_config_toml_from_current_directory(
         ),
     )
 
-    assert load_config() == {
+    assert load_config(Path("config.toml")) == {
         "logging": {"level": "DEBUG"},
         "matrix": {
             "homeserver": "https://matrix.example.org",
@@ -82,7 +83,7 @@ def test_load_config_raises_when_required_table_is_missing(fs: FakeFilesystem) -
     _write_config_file(fs, _VALID_MESHCORE + _VALID_SYNC)
 
     with pytest.raises(ConfigurationError, match=r"Configuration table 'matrix' is missing"):
-        _ = load_config()
+        _ = load_config(Path("config.toml"))
 
 
 def test_load_config_raises_when_required_key_is_missing(fs: FakeFilesystem) -> None:
@@ -90,14 +91,14 @@ def test_load_config_raises_when_required_key_is_missing(fs: FakeFilesystem) -> 
     _write_config_file(fs, matrix_without_homeserver + _VALID_MESHCORE + _VALID_SYNC)
 
     with pytest.raises(ConfigurationError, match=r"Configuration key 'matrix\.homeserver' is missing"):
-        _ = load_config()
+        _ = load_config(Path("config.toml"))
 
 
 def test_load_config_raises_when_sync_array_is_missing(fs: FakeFilesystem) -> None:
     _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE)
 
     with pytest.raises(ConfigurationError, match=r"Configuration array 'sync' is missing"):
-        _ = load_config()
+        _ = load_config(Path("config.toml"))
 
 
 def test_load_config_raises_when_channel_index_is_not_an_integer(fs: FakeFilesystem) -> None:
@@ -105,20 +106,20 @@ def test_load_config_raises_when_channel_index_is_not_an_integer(fs: FakeFilesys
     _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + invalid_sync)
 
     with pytest.raises(ConfigurationError, match=r"'sync\[0\]\.meshcore_channel_idx'"):
-        _ = load_config()
+        _ = load_config(Path("config.toml"))
 
 
 def test_load_config_raises_when_sync_entry_is_not_a_table(fs: FakeFilesystem) -> None:
     _write_config_file(fs, "sync = [1]\n" + _VALID_MATRIX + _VALID_MESHCORE)
 
     with pytest.raises(ConfigurationError, match=r"Configuration entry sync\[0\] is not a table"):
-        _ = load_config()
+        _ = load_config(Path("config.toml"))
 
 
 def test_load_config_allows_omitting_optional_logging_section(fs: FakeFilesystem) -> None:
     _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + _VALID_SYNC)
 
-    assert load_config() == {
+    assert load_config(Path("config.toml")) == {
         "matrix": {
             "homeserver": "https://matrix.example.org",
             "access_token": "token",

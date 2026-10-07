@@ -16,8 +16,11 @@
 #                                                                                              #
 ################################################################################################
 
+import argparse
 import asyncio
 import logging
+from dataclasses import dataclass
+from pathlib import Path
 
 from mmc.configuration import ConfigurationError, configure_logging, load_config
 from mmc.exceptions import ExceptionBase
@@ -28,21 +31,44 @@ from mmc.synchronizer import SynchronizationRule, Synchronizer
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class _AppArgs(argparse.Namespace):
+    config: Path = Path("config.toml")
+
+
+class _AppArgumentParser:
+    def __init__(self):
+        self._parser: argparse.ArgumentParser = argparse.ArgumentParser()
+        default = _AppArgs()
+        _ = self._parser.add_argument(
+            "-c",
+            "--config",
+            metavar="PATH",
+            type=Path,
+            help=f"Path to configuration file (default: '{default.config}')",
+        )
+
+    def get_args(self) -> _AppArgs:
+        return self._parser.parse_args(namespace=_AppArgs())
+
+
 def main() -> int:
+    parser = _AppArgumentParser()
+    args = parser.get_args()
     try:
-        return asyncio.run(run())
+        return asyncio.run(run(args.config))
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         return 130
 
 
-async def run() -> int:
+async def run(config_path: Path) -> int:
     logging.basicConfig(
         level=logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     try:
-        config = await asyncio.to_thread(load_config)
+        config = await asyncio.to_thread(load_config, config_path)
     except ConfigurationError:
         logger.exception("Failed to load configuration")
         return 78

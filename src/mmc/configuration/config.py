@@ -60,8 +60,8 @@ class Config(TypedDict):
     logging: NotRequired[dict[str, str]]
 
 
-def load_config() -> Config:
-    with Path("config.toml").open("rb") as config_file:
+def load_config(path: Path) -> Config:
+    with path.open("rb") as config_file:
         return _parse_config(cast(Mapping[str, object], tomllib.load(config_file)))
 
 
