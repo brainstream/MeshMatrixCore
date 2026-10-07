@@ -94,7 +94,7 @@ class MeshCoreClient:
             raise MeshCoreException("Failed to start MeshCore message handling") from err
         logger.info("MeshCore connected; automatic message fetching started")
 
-    def _handle_channel_msg(self, event: Event):
+    def _handle_channel_msg(self, event: Event) -> None:
         raw_payload = cast(object, event.payload)
         if not isinstance(raw_payload, dict):
             return
@@ -110,25 +110,14 @@ class MeshCoreClient:
             try:
                 result = listener(message)
                 if isawaitable(result):
-                    task = asyncio.ensure_future(result)
-                    task.add_done_callback(self._log_listener_result)
+                    _ = asyncio.ensure_future(result)
             except Exception as err:
-                raise MeshCoreException(
+                logger.error(
                     "MeshCore message listener %r failed on channel %s",
                     listener,
                     message.channel,
-                ) from err
-
-    @staticmethod
-    def _log_listener_result(task: asyncio.Future[None]) -> None:
-        if task.cancelled():
-            return
-        error = task.exception()
-        if error is not None:
-            logger.error(
-                "Asynchronous MeshCore message listener failed",
-                exc_info=(type(error), error, error.__traceback__),
-            )
+                    exc_info=(type(err), err, err.__traceback__),
+                )
 
     def _map_message_from_event(self, event: Event) -> MeshCoreMessage | None:
         raw_payload = cast(object, event.payload)

@@ -284,19 +284,21 @@ def test_ignores_message_without_sender_or_body() -> None:
     assert received == []
 
 
-def test_wraps_sync_listener_failure() -> None:
+def test_logs_sync_listener_failure_and_continues(caplog: pytest.LogCaptureFixture) -> None:
     harness = make_harness()
+    received: list[MeshCoreMessage] = []
 
     def listener(_message: MeshCoreMessage) -> None:
         raise RuntimeError("listener failed")
 
     harness.client.add_message_listener(listener)
+    harness.client.add_message_listener(received.append)
     asyncio.run(harness.start())
 
-    with pytest.raises(MeshCoreException, match="MeshCore message listener") as error:
-        harness.dispatch("BSTM: hello")
+    harness.dispatch("BSTM: hello")
 
-    assert isinstance(error.value.__cause__, RuntimeError)
+    assert "MeshCore message listener" in caplog.text
+    assert received == [MeshCoreMessage(channel=2, sender="BSTM", text="hello")]
 
 
 def test_dispatches_async_listener() -> None:
@@ -315,24 +317,6 @@ def test_dispatches_async_listener() -> None:
     asyncio.run(dispatch())
 
     assert received == [MeshCoreMessage(channel=2, sender="BSTM", text="hello")]
-
-
-def test_logs_async_listener_failure(caplog: pytest.LogCaptureFixture) -> None:
-    harness = make_harness()
-
-    async def listener(_message: MeshCoreMessage) -> None:
-        raise RuntimeError("async listener failed")
-
-    async def dispatch() -> None:
-        harness.client.add_message_listener(listener)
-        await harness.start()
-        harness.dispatch("BSTM: hello")
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-
-    asyncio.run(dispatch())
-
-    assert "Asynchronous MeshCore message listener failed" in caplog.text
 
 
 def test_logs_invalid_channel_message(caplog: pytest.LogCaptureFixture) -> None:
