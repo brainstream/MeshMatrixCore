@@ -30,9 +30,7 @@ _SECTION_LOGGING = "logging"
 
 _HOMESERVER = "homeserver"
 _ACCESS_TOKEN = "access_token"
-_MATRIX_USER_ID = "matrix_user_id"
 _SERIAL_PORT = "serial_port"
-_MESHCORE_USER_ID = "meshcore_user_id"
 _MATRIX_ROOM_ID = "matrix_room_id"
 _MESHCORE_CHANNEL_IDX = "meshcore_channel_idx"
 
@@ -40,12 +38,10 @@ _MESHCORE_CHANNEL_IDX = "meshcore_channel_idx"
 class _MatrixConfig(TypedDict):
     homeserver: str
     access_token: str
-    matrix_user_id: str
 
 
 class _MeshCoreConfig(TypedDict):
     serial_port: str
-    meshcore_user_id: str
 
 
 class _SyncConfig(TypedDict):
@@ -74,11 +70,9 @@ def _parse_config(raw_config: Mapping[str, object]) -> Config:
         matrix=_MatrixConfig(
             homeserver=_require_str(matrix.get(_HOMESERVER), f"{_SECTION_MATRIX}.{_HOMESERVER}"),
             access_token=_require_str(matrix.get(_ACCESS_TOKEN), f"{_SECTION_MATRIX}.{_ACCESS_TOKEN}"),
-            matrix_user_id=_require_str(matrix.get(_MATRIX_USER_ID), f"{_SECTION_MATRIX}.{_MATRIX_USER_ID}"),
         ),
         meshcore=_MeshCoreConfig(
             serial_port=_require_str(meshcore.get(_SERIAL_PORT), f"{_SECTION_MESHCORE}.{_SERIAL_PORT}"),
-            meshcore_user_id=_require_str(meshcore.get(_MESHCORE_USER_ID), f"{_SECTION_MESHCORE}.{_MESHCORE_USER_ID}"),
         ),
         sync=[_parse_sync_entry(index, entry) for index, entry in enumerate(sync_entries)],
     )

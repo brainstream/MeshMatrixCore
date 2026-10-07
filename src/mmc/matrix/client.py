@@ -21,6 +21,7 @@ from collections.abc import Awaitable, Callable
 from inspect import isawaitable
 from types import TracebackType
 
+from cachetools import TTLCache
 from nio import AsyncClient, Event, RoomMessageText, SyncError
 from nio import MatrixRoom as NioMatrixRoom
 from nio.responses import RoomSendError
@@ -39,6 +40,7 @@ class MatrixClient:
         self._client: AsyncClient = client
         self._client.access_token = access_token
         self._message_listeners: list[MessageListener] = []
+        self._sent_events: TTLCache[str, bool] = TTLCache[str, bool](1000, ttl=6000)
 
     async def __aenter__(self):
         return self
@@ -77,6 +79,7 @@ class MatrixClient:
             raise MatrixException("Failed to send Matrix message") from err
         if isinstance(result, RoomSendError):
             raise MatrixException(f"Failed to send Matrix message: {result}")
+        self._sent_events[result.event_id] = True
 
     def add_message_listener(self, listener: MessageListener) -> None:
         self._message_listeners.append(listener)
@@ -101,7 +104,7 @@ class MatrixClient:
     async def _handle_message(self, room: NioMatrixRoom, event: Event) -> None:
         if not isinstance(event, RoomMessageText):
             return
-        if not self._message_listeners:
+        if not self._message_listeners or event.event_id in self._sent_events:
             return
         message = self._map_message(room, event)
         logger.debug(

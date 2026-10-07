@@ -30,11 +30,6 @@ from mmc.synchronizer import (
     SynchronizationRule,
     Synchronizer,
 )
-from mmc.synchronizer.guard import (
-    HashBasedMessageGuardRule,
-    MessageGuard,
-    SenderBasedMessageGuardRule,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -105,14 +100,7 @@ async def run(config_path: Path) -> int:
         await MatrixClient.create(matrix_config["homeserver"], matrix_config["access_token"]) as matrix,
         await MeshCoreClient.create(meshcore_config["serial_port"]) as meshcore,
     ):
-        guard = MessageGuard()
-        guard.add_rule(
-            SenderBasedMessageGuardRule(
-                matrix_sender_id=matrix_config["matrix_user_id"], meshcore_sender_id=meshcore_config["meshcore_user_id"]
-            )
-        )
-        guard.add_rule(HashBasedMessageGuardRule())
-        synchronizer = Synchronizer(matrix, meshcore, rules, guard)
+        synchronizer = Synchronizer(matrix, meshcore, rules)
         try:
             logger.info("Starting Matrix and MeshCore synchronization")
             await synchronizer.run()

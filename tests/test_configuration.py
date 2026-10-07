@@ -30,13 +30,8 @@ class _FakeFilesystem(Protocol):
     def create_file(self, file_path: str, *, contents: str) -> object: ...
 
 
-_VALID_MATRIX = (
-    "[matrix]\n"
-    + 'homeserver = "https://matrix.example.org"\n'
-    + 'access_token = "token"\n'
-    + 'matrix_user_id = "@bot:example.org"\n'
-)
-_VALID_MESHCORE = "[meshcore]\n" + 'serial_port = "/dev/ttyUSB0"\n' + 'meshcore_user_id = "bridge"\n'
+_VALID_MATRIX = "[matrix]\n" + 'homeserver = "https://matrix.example.org"\n' + 'access_token = "token"\n'
+_VALID_MESHCORE = "[meshcore]\n" + 'serial_port = "/dev/ttyUSB0"\n'
 _VALID_SYNC = "[[sync]]\n" + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
 
 
@@ -57,10 +52,8 @@ def test_load_config_reads_config_toml_from_current_directory(
             + "[matrix]\n"
             + 'homeserver = "https://matrix.example.org"\n'
             + 'access_token = "token"\n'
-            + 'matrix_user_id = "@bot:example.org"\n'
             + "[meshcore]\n"
             + 'serial_port = "/dev/ttyUSB0"\n'
-            + 'meshcore_user_id = "bridge"\n'
             + "[[sync]]\n"
             + 'matrix_room_id = "!room:example.org"\n'
             + "meshcore_channel_idx = 3\n"
@@ -72,9 +65,8 @@ def test_load_config_reads_config_toml_from_current_directory(
         "matrix": {
             "homeserver": "https://matrix.example.org",
             "access_token": "token",
-            "matrix_user_id": "@bot:example.org",
         },
-        "meshcore": {"serial_port": "/dev/ttyUSB0", "meshcore_user_id": "bridge"},
+        "meshcore": {"serial_port": "/dev/ttyUSB0"},
         "sync": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
     }
 
@@ -87,7 +79,7 @@ def test_load_config_raises_when_required_table_is_missing(fs: FakeFilesystem) -
 
 
 def test_load_config_raises_when_required_key_is_missing(fs: FakeFilesystem) -> None:
-    matrix_without_homeserver = "[matrix]\n" + 'access_token = "token"\n' + 'matrix_user_id = "@bot:example.org"\n'
+    matrix_without_homeserver = "[matrix]\n" + 'access_token = "token"\n'
     _write_config_file(fs, matrix_without_homeserver + _VALID_MESHCORE + _VALID_SYNC)
 
     with pytest.raises(ConfigurationError, match=r"Configuration key 'matrix\.homeserver' is missing"):
@@ -123,9 +115,8 @@ def test_load_config_allows_omitting_optional_logging_section(fs: FakeFilesystem
         "matrix": {
             "homeserver": "https://matrix.example.org",
             "access_token": "token",
-            "matrix_user_id": "@bot:example.org",
         },
-        "meshcore": {"serial_port": "/dev/ttyUSB0", "meshcore_user_id": "bridge"},
+        "meshcore": {"serial_port": "/dev/ttyUSB0"},
         "sync": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
     }
 

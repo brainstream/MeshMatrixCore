@@ -32,15 +32,7 @@ from mmc.message import (
     MeshCoreMessage,
     MeshCoreMessageToSend,
 )
-from mmc.synchronizer import (
-    SynchronizationRule,
-    Synchronizer,
-)
-from mmc.synchronizer.guard import (
-    HashBasedMessageGuardRule,
-    MessageGuard,
-    SenderBasedMessageGuardRule,
-)
+from mmc.synchronizer import SynchronizationRule, Synchronizer
 
 MatrixListener = Callable[[MatrixMessage], Awaitable[None] | None]
 MeshCoreListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
@@ -102,14 +94,10 @@ def make_synchronizer(
 ) -> tuple[_MatrixClientStub, _MeshCoreClientStub, Synchronizer]:
     matrix = _MatrixClientStub()
     meshcore = _MeshCoreClientStub()
-    guard = MessageGuard()
-    guard.add_rule(SenderBasedMessageGuardRule("@bridge:example.org", "bridge-node"))
-    guard.add_rule(HashBasedMessageGuardRule())
     synchronizer = Synchronizer(
         cast(MatrixClient, cast(object, matrix)),
         cast(MeshCoreClient, cast(object, meshcore)),
         rules if rules is not None else [make_rule()],
-        guard,
     )
     return matrix, meshcore, synchronizer
 
@@ -160,12 +148,12 @@ def test_forwards_matrix_message_to_matching_meshcore_channel() -> None:
     assert meshcore.sent_messages == [MeshCoreMessageToSend(channel=7, chunks=["⚛ Alice\nHello from Matrix"])]
 
 
-def test_ignores_matrix_message_from_bridge_user() -> None:
+def test_forwards_matrix_message_from_bridge_user() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
     dispatch_matrix_message(matrix, make_matrix_message(sender_id="@bridge:example.org"))
 
-    assert meshcore.sent_messages == []
+    assert meshcore.sent_messages == [MeshCoreMessageToSend(channel=7, chunks=["⚛ Alice\nHello from Matrix"])]
 
 
 def test_ignores_matrix_message_without_matching_room() -> None:
@@ -176,18 +164,17 @@ def test_ignores_matrix_message_without_matching_room() -> None:
     assert meshcore.sent_messages == []
 
 
-def test_forwarded_matrix_message_echo_is_ignored() -> None:
+def test_matrix_message_echo_is_forwarded_to_matrix() -> None:
     matrix, meshcore, _ = make_synchronizer()
-    original = make_matrix_message()
 
-    dispatch_matrix_message(matrix, original)
+    dispatch_matrix_message(matrix, make_matrix_message())
     dispatch_meshcore_message(
         meshcore,
         make_meshcore_message(text="⚛ Alice\nHello from Matrix", sender="mesh-peer"),
     )
 
     assert len(meshcore.sent_messages) == 1
-    assert matrix.sent_messages == []
+    assert len(matrix.sent_messages) == 1
 
 
 def test_forwards_meshcore_message_to_matching_matrix_room() -> None:
@@ -205,12 +192,12 @@ def test_forwards_meshcore_message_to_matching_matrix_room() -> None:
     ]
 
 
-def test_ignores_meshcore_message_from_bridge_user() -> None:
+def test_forwards_meshcore_message_from_bridge_user() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
     dispatch_meshcore_message(meshcore, make_meshcore_message(sender="bridge-node"))
 
-    assert matrix.sent_messages == []
+    assert len(matrix.sent_messages) == 1
 
 
 def test_ignores_meshcore_message_without_matching_channel() -> None:
@@ -221,7 +208,7 @@ def test_ignores_meshcore_message_without_matching_channel() -> None:
     assert matrix.sent_messages == []
 
 
-def test_forwarded_meshcore_message_echo_is_ignored() -> None:
+def test_meshcore_message_echo_is_forwarded_to_meshcore() -> None:
     matrix, meshcore, _ = make_synchronizer()
 
     dispatch_meshcore_message(meshcore, make_meshcore_message())
@@ -231,7 +218,7 @@ def test_forwarded_meshcore_message_echo_is_ignored() -> None:
     )
 
     assert len(matrix.sent_messages) == 1
-    assert meshcore.sent_messages == []
+    assert len(meshcore.sent_messages) == 1
 
 
 def test_matrix_message_matching_forwarded_meshcore_payload_is_forwarded() -> None:

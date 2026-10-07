@@ -37,7 +37,7 @@ class AsyncClientStub:
         self.access_token: str | None = None
         self.close_count: int = 0
         self.send_call: tuple[str, str, dict[str, str]] | None = None
-        self.send_result: object = object()
+        self.send_result: object = type("SendResult", (), {"event_id": "$sent:example.org"})()
         self.send_error: Exception | None = None
         self.sync_result: object = type("SyncResult", (), {"next_batch": "batch-1"})()
         self.sync_error: Exception | None = None
@@ -111,10 +111,12 @@ def make_room(
     return cast(NioMatrixRoom, cast(object, RoomStub()))
 
 
-def make_event(*, sender: str = "@alice:example.org", body: str = "hello") -> RoomMessageText:
+def make_event(
+    *, event_id: str = "$event:example.org", sender: str = "@alice:example.org", body: str = "hello"
+) -> RoomMessageText:
     return RoomMessageText(
         source={
-            "event_id": "$event:example.org",
+            "event_id": event_id,
             "sender": sender,
             "origin_server_ts": 0,
             "type": "m.room.message",
@@ -277,6 +279,37 @@ def test_dispatches_message_to_registered_listener() -> None:
             sender=MatrixUser(id="@alice:example.org", name="Alice"),
         )
     ]
+
+
+def test_ignores_echo_of_sent_message() -> None:
+    harness = make_harness()
+    received: list[MatrixMessage] = []
+    harness.client.add_message_listener(received.append)
+    message = MatrixMessageToSend(room="!room:example.org", sender="bridge", text="hello", html="<p>hello</p>")
+
+    async def send_and_dispatch_echo() -> None:
+        await harness.client.send_text(message)
+        await harness.dispatch(make_room(), make_event(event_id="$sent:example.org"))
+
+    asyncio.run(send_and_dispatch_echo())
+
+    assert received == []
+
+
+def test_dispatches_event_that_does_not_match_sent_message_id() -> None:
+    harness = make_harness()
+    received: list[MatrixMessage] = []
+    harness.client.add_message_listener(received.append)
+    message = MatrixMessageToSend(room="!room:example.org", sender="bridge", text="outgoing", html="<p>outgoing</p>")
+
+    async def send_and_dispatch_other_event() -> None:
+        await harness.client.send_text(message)
+        await harness.dispatch(make_room(), make_event(event_id="$different:example.org", body="incoming"))
+
+    asyncio.run(send_and_dispatch_other_event())
+
+    assert len(received) == 1
+    assert received[0].text == "incoming"
 
 
 def test_sender_id_is_used_when_room_has_no_display_name_for_sender() -> None:
