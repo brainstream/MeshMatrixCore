@@ -19,7 +19,7 @@
 import asyncio
 import logging
 
-from mmc.config import configure_logging, load_config
+from mmc.configuration import ConfigurationError, configure_logging, load_config
 from mmc.exceptions import ExceptionBase
 from mmc.matrix import MatrixClient
 from mmc.mesh.core import MeshCoreClient
@@ -43,14 +43,14 @@ async def run() -> int:
     )
     try:
         config = await asyncio.to_thread(load_config)
-    except Exception:
+    except ConfigurationError:
         logger.exception("Failed to load configuration")
         return 78
 
     log_level = config.get("logging", {}).get("level", "INFO")
     try:
         configure_logging(log_level)
-    except ValueError:
+    except ConfigurationError:
         logger.exception("Failed to configure logging")
         return 78
     logger.info("Logging configured at %s level", log_level.upper())

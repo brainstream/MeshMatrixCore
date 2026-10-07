@@ -1,0 +1,31 @@
+################################################################################################
+# Copyright © 2026 Sergey Smolyannikov aka brainstream                                         #
+#                                                                                              #
+# This file is part of the MeshMatrixCore project — a bridge between MeshCore and Matrix.      #
+#                                                                                              #
+# MeshMatrixCore is free software: you can redistribute it and/or modify it under the terms of #
+# the GNU General Public License as published by the Free Software Foundation,                 #
+# either version 3 of the License, or (at your option) any later version.                      #
+#                                                                                              #
+# MeshMatrixCore is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;  #
+# without even the implied warranty of  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.   #
+# See the GNU General Public License for more details.                                         #
+#                                                                                              #
+# You should have received a copy of the GNU General Public License along with MeshMatrixCore. #
+# If not, see <http://www.gnu.org/licenses/>.                                                  #
+#                                                                                              #
+################################################################################################
+
+import logging
+from typing import cast
+
+from .exceptions import ConfigurationError
+
+
+def configure_logging(level: str) -> None:
+    levels = {name: cast(int, getattr(logging, name)) for name in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")}
+    numeric_level = levels.get(level.upper())
+    if numeric_level is None:
+        supported_levels = ", ".join(levels)
+        raise ConfigurationError(f"Invalid logging level {level!r}. Supported levels: {supported_levels}")
+    logging.getLogger().setLevel(numeric_level)
