@@ -106,7 +106,7 @@ def test_convert_meshcore_message_to_matrix() -> None:
     assert MatrixMessageToSend.from_meshcore_message(message, room="!room:example.org") == MatrixMessageToSend(
         room="!room:example.org",
         sender="alice-node",
-        text="📟 alice-node\nHello from MeshCore",
+        text="**📟 alice-node**\n\nHello from MeshCore",
         html="<p><strong>📟 alice-node</strong></p>\n<p>Hello from MeshCore</p>",
     )
 
@@ -126,7 +126,18 @@ def test_convert_meshcore_message_without_sender_to_matrix() -> None:
         MatrixMessageToSend(
             room="!room:example.org",
             sender="unknown",
-            text="📟 unknown\nHello from MeshCore",
+            text="**📟 unknown**\n\nHello from MeshCore",
             html="<p><strong>📟 unknown</strong></p>\n<p>Hello from MeshCore</p>",
         )
+    )
+
+
+def test_create_unsupported_mime_message_for_matrix() -> None:
+    converted = MatrixMessageToSend.create_unsupported_mime_message("!room:example.org")
+
+    assert converted == MatrixMessageToSend(
+        room="!room:example.org",
+        sender="",
+        text="> ⚠️ MeshCore supports text messages only",
+        html="<blockquote>\n<p>⚠️ MeshCore supports text messages only</p>\n</blockquote>",
     )

@@ -23,6 +23,8 @@ from markdown import markdown
 
 _MESHCORE_MAX_MESSAGE_LENGTH = 143
 _MESHCORE_MAX_SENDER_NAME_LENGTH = 24
+_MESHCORE_ICON_EMOJI = "📟"
+_MATRIX_ICON_EMOJI = "⚛"
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +43,7 @@ class MeshCoreMessageToSend:
     @classmethod
     def from_matrix_message(cls, message: MatrixMessage, channel: int) -> MeshCoreMessageToSend:
         sender = cls._truncate_sender(message.sender.name)
-        matrix_icon = "⚛ "
+        matrix_icon = _MATRIX_ICON_EMOJI + " "
         full_text = f"{matrix_icon}{sender}\n{message.text}"
         if len(_MeshCoreTextEncoder.encode(full_text)) <= _MESHCORE_MAX_MESSAGE_LENGTH:
             chunks = [full_text]
@@ -133,9 +135,20 @@ class MatrixMessageToSend:
     @classmethod
     def from_meshcore_message(cls, message: MeshCoreMessage, room: str) -> MatrixMessageToSend:
         sender = message.sender or "unknown"
+        text = f"**{_MESHCORE_ICON_EMOJI} {sender}**\n\n{message.text}"
         return cls(
             room=room,
             sender=sender,
-            text=f"📟 {sender}\n{message.text}",
-            html=markdown(f"**📟 {sender}**\n\n{message.text}"),
+            text=text,
+            html=markdown(text),
+        )
+
+    @classmethod
+    def create_unsupported_mime_message(cls, room: str) -> MatrixMessageToSend:
+        text = "> ⚠️ MeshCore supports text messages only"
+        return cls(
+            room=room,
+            sender="",
+            text=text,
+            html=markdown(text),
         )

@@ -186,7 +186,7 @@ def test_forwards_meshcore_message_to_matching_matrix_room() -> None:
         MatrixMessageToSend(
             room="!room:example.org",
             sender="alice-node",
-            text="📟 alice-node\nHello from MeshCore",
+            text="**📟 alice-node**\n\nHello from MeshCore",
             html="<p><strong>📟 alice-node</strong></p>\n<p>Hello from MeshCore</p>",
         )
     ]

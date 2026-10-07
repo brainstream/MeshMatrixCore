@@ -21,7 +21,7 @@ from collections.abc import Awaitable, Callable
 from typing import cast
 
 import pytest
-from nio import AsyncClient, Event, RoomMessageText, SyncError
+from nio import AsyncClient, Event, RoomMessage, RoomMessageText, SyncError
 from nio import MatrixRoom as NioMatrixRoom
 from nio.responses import RoomSendError
 
@@ -112,7 +112,11 @@ def make_room(
 
 
 def make_event(
-    *, event_id: str = "$event:example.org", sender: str = "@alice:example.org", body: str = "hello"
+    *,
+    event_id: str = "$event:example.org",
+    sender: str = "@alice:example.org",
+    body: str = "hello",
+    event_format: str | None = None,
 ) -> RoomMessageText:
     return RoomMessageText(
         source={
@@ -124,7 +128,7 @@ def make_event(
         },
         body=body,
         formatted_body=None,
-        format=None,
+        format=event_format,
     )
 
 
@@ -226,7 +230,7 @@ def test_run_syncs_registers_callback_and_continues_from_initial_batch() -> None
 
     assert harness.nio.sync_call == {"timeout": 30000}
     assert harness.nio.event_callback is not None
-    assert harness.nio.event_type is RoomMessageText
+    assert harness.nio.event_type is RoomMessage
     assert harness.nio.sync_forever_call == {"timeout": 30000, "since": "batch-1"}
 
 
@@ -281,6 +285,22 @@ def test_dispatches_message_to_registered_listener() -> None:
     ]
 
 
+def test_strips_markdown_from_html_formatted_matrix_message() -> None:
+    harness = make_harness()
+    received: list[MatrixMessage] = []
+    harness.client.add_message_listener(received.append)
+
+    asyncio.run(
+        harness.dispatch(
+            make_room(),
+            make_event(body="**bold** and _italic_", event_format="org.matrix.custom.html"),
+        )
+    )
+
+    assert len(received) == 1
+    assert received[0].text == "bold and italic"
+
+
 def test_ignores_echo_of_sent_message() -> None:
     harness = make_harness()
     received: list[MatrixMessage] = []
@@ -323,14 +343,21 @@ def test_sender_id_is_used_when_room_has_no_display_name_for_sender() -> None:
     assert received[0].sender == MatrixUser(id="@alice:example.org", name="@alice:example.org")
 
 
-def test_ignores_non_text_event() -> None:
+def test_sends_unsupported_message_for_non_text_event() -> None:
     harness = make_harness()
-    received: list[MatrixMessage] = []
-    harness.client.add_message_listener(received.append)
 
     asyncio.run(harness.dispatch(make_room(), cast(Event, object())))
 
-    assert received == []
+    assert harness.nio.send_call == (
+        "!room:example.org",
+        "m.room.message",
+        {
+            "msgtype": "m.text",
+            "body": "> ⚠️ MeshCore supports text messages only",
+            "format": "org.matrix.custom.html",
+            "formatted_body": "<blockquote>\n<p>⚠️ MeshCore supports text messages only</p>\n</blockquote>",
+        },
+    )
 
 
 def test_ignores_text_event_when_there_are_no_listeners() -> None:
