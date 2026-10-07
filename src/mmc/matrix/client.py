@@ -16,6 +16,7 @@
 #                                                                                              #
 ################################################################################################
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from inspect import isawaitable
@@ -41,6 +42,7 @@ class MatrixClient:
         self._client.access_token = access_token
         self._message_listeners: list[MessageListener] = []
         self._sent_events: TTLCache[str, bool] = TTLCache[str, bool](1000, ttl=6000)
+        self._lock: asyncio.Lock = asyncio.Lock()
 
     async def __aenter__(self):
         return self
@@ -63,23 +65,24 @@ class MatrixClient:
         await self._client.close()
 
     async def send_text(self, message: MatrixMessageToSend):
-        logger.debug("Sending Matrix message to room %s", message.room)
-        try:
-            result = await self._client.room_send(
-                message.room,
-                "m.room.message",
-                {
-                    "msgtype": "m.text",
-                    "body": message.text,
-                    "format": "org.matrix.custom.html",
-                    "formatted_body": message.html,
-                },
-            )
-        except Exception as err:
-            raise MatrixException("Failed to send Matrix message") from err
-        if isinstance(result, RoomSendError):
-            raise MatrixException(f"Failed to send Matrix message: {result}")
-        self._sent_events[result.event_id] = True
+        async with self._lock:
+            logger.debug("Sending Matrix message to room %s", message.room)
+            try:
+                result = await self._client.room_send(
+                    message.room,
+                    "m.room.message",
+                    {
+                        "msgtype": "m.text",
+                        "body": message.text,
+                        "format": "org.matrix.custom.html",
+                        "formatted_body": message.html,
+                    },
+                )
+            except Exception as err:
+                raise MatrixException("Failed to send Matrix message") from err
+            if isinstance(result, RoomSendError):
+                raise MatrixException(f"Failed to send Matrix message: {result}")
+            self._sent_events[result.event_id] = True
 
     def add_message_listener(self, listener: MessageListener) -> None:
         self._message_listeners.append(listener)
@@ -104,8 +107,11 @@ class MatrixClient:
     async def _handle_message(self, room: NioMatrixRoom, event: Event) -> None:
         if not isinstance(event, RoomMessageText):
             return
-        if not self._message_listeners or event.event_id in self._sent_events:
+        if not self._message_listeners:
             return
+        async with self._lock:
+            if event.event_id in self._sent_events:
+                return
         message = self._map_message(room, event)
         logger.debug(
             "Received Matrix message in room %s from %s",
