@@ -35,7 +35,7 @@ from .exceptions import MatrixException
 MessageListener = Callable[[MatrixMessage], Awaitable[None] | None]
 
 logger = logging.getLogger(__name__)
-
+_MATRIX_FORMAT_HTML = "org.matrix.custom.html"
 
 class MatrixClient:
     def __init__(self, client: AsyncClient, access_token: str):
@@ -75,7 +75,7 @@ class MatrixClient:
                     {
                         "msgtype": "m.text",
                         "body": message.text,
-                        "format": "org.matrix.custom.html",
+                        "format": _MATRIX_FORMAT_HTML,
                         "formatted_body": message.html,
                     },
                 )
@@ -106,35 +106,40 @@ class MatrixClient:
             raise MatrixException("Matrix sync stopped unexpectedly") from err
 
     async def _handle_message(self, room: NioMatrixRoom, event: Event) -> None:
-        if isinstance(event, RoomMessageText):
-            if not self._message_listeners:
+        if not self._message_listeners:
+            return
+
+        async with self._lock:
+            if event.event_id in self._sent_events:
                 return
-            async with self._lock:
-                if event.event_id in self._sent_events:
-                    return
-            message = self._map_message(room, event)
-            logger.debug(
-                "Received Matrix message in room %s from %s",
-                message.room.id,
-                message.sender.id,
-            )
-            for listener in self._message_listeners:
-                try:
-                    result = listener(message)
-                    if isawaitable(result):
-                        await result
-                except Exception as err:
-                    logger.error(
-                        "Matrix message listener %r failed for room %s",
-                        listener,
-                        message.room.id,
-                        exc_info=err,
-                    )
-        else:
+
+        if not isinstance(event, RoomMessageText):
             await self.send_text(MatrixMessageToSend.create_unsupported_mime_message(room.room_id))
+            return
+
+        message = self._map_message(room, event)
+        logger.debug(
+            "Received Matrix message in room %s from %s",
+            message.room.id,
+            message.sender.id,
+        )
+
+        for listener in self._message_listeners:
+            try:
+                result = listener(message)
+                if isawaitable(result):
+                    await result
+            except Exception as err:
+                logger.error(
+                    "Matrix message listener %r failed for room %s",
+                    listener,
+                    message.room.id,
+                    exc_info=err,
+                )
+
 
     def _map_message(self, room: NioMatrixRoom, event: RoomMessageText) -> MatrixMessage:
-        text = strip_markdown(event.body) if event.format == "org.matrix.custom.html" else event.body
+        text = strip_markdown(event.body) if event.format == _MATRIX_FORMAT_HTML else event.body
         return MatrixMessage(
             text=text,
             room=MatrixRoom(id=room.room_id, name=room.display_name),
