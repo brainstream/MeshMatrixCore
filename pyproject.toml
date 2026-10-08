@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MeshMatrixCore"
-version = "0.1.0"
+version = "1.0.0"
 description = "Bridge between MeshCore channels and Matrix rooms"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -27,6 +27,10 @@ debug = [
 test = [
     "pytest>=9.1",
     "pyfakefs>=6.2",
+]
+lint = [
+    "basedpyright>=1.40.0",
+    "ruff>=0.16.10"
 ]
 
 [tool.pytest.ini_options]

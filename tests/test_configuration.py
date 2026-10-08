@@ -33,7 +33,9 @@ class _FakeFilesystem(Protocol):
 
 _VALID_MATRIX = "[matrix]\n" + 'homeserver = "https://matrix.example.org"\n' + 'access_token = "token"\n'
 _VALID_MESHCORE = '[meshcore]\nconnection = "serial"\n[meshcore.serial]\nport = "/dev/ttyUSB0"\nbaudrate = 115200\n'
-_VALID_SYNC = '[sync]\nfanout = false\n[[sync.rule]]\n' + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
+_VALID_SYNC = (
+    "[sync]\nfanout = false\n[[sync.rule]]\n" + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
+)
 
 
 def _write_config_file(fs: FakeFilesystem, contents: str) -> None:
@@ -103,7 +105,11 @@ def test_load_config_raises_when_sync_rule_array_is_missing(fs: FakeFilesystem) 
 
 
 def test_load_config_raises_when_fanout_is_not_a_boolean(fs: FakeFilesystem) -> None:
-    invalid_sync = '[sync]\nfanout = "yes"\n[[sync.rule]]\n' + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
+    invalid_sync = (
+        '[sync]\nfanout = "yes"\n[[sync.rule]]\n'
+        + 'matrix_room_id = "!room:example.org"\n'
+        + "meshcore_channel_idx = 3\n"
+    )
     _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + invalid_sync)
 
     with pytest.raises(ConfigurationError, match=r"Configuration key 'sync\.fanout' is not a boolean"):
@@ -111,7 +117,9 @@ def test_load_config_raises_when_fanout_is_not_a_boolean(fs: FakeFilesystem) -> 
 
 
 def test_load_config_raises_when_channel_index_is_not_an_integer(fs: FakeFilesystem) -> None:
-    invalid_sync = '[sync]\n[[sync.rule]]\n' + 'matrix_room_id = "!room:example.org"\n' + 'meshcore_channel_idx = "three"\n'
+    invalid_sync = (
+        "[sync]\n[[sync.rule]]\n" + 'matrix_room_id = "!room:example.org"\n' + 'meshcore_channel_idx = "three"\n'
+    )
     _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + invalid_sync)
 
     with pytest.raises(ConfigurationError, match=r"'sync\.rule\[0\]\.meshcore_channel_idx'"):

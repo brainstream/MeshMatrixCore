@@ -27,7 +27,6 @@ from mmc.message import MatrixMessage, MatrixMessageToSend, MeshCoreMessage, Mes
 logger = logging.getLogger(__name__)
 
 
-
 @dataclass
 class SynchronizationRule:
     matrix_room_id: str

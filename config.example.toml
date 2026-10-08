@@ -25,7 +25,7 @@ connection = "serial"
 [meshcore.serial]
 # Serial device path. Prefer /dev/serial/by-id/... over /dev/ttyUSB0 where
 # available, because the by-id path is less likely to change after reconnects.
-port = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_44:1B:F6:6F:15:68-if00"
+port = "/dev/serial/by-id/usb-Espressif_ESP32-S3_w_USB_CDC_112233445566-if00"
 # Serial line speed in bits per second. Defaults to 115200 when omitted.
 baudrate = 115200
 
