@@ -6,7 +6,24 @@ homeserver = "https://matrix.example.org"
 access_token = "YOUR_MATRIX_ACCESS_TOKEN"
 
 [meshcore]
-serial_port = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_44:1B:F6:6F:15:68-if00"
+connection = "serial" # serial, ble, or tcp
+
+# Required when meshcore.connection is "serial"
+[meshcore.serial]
+# It is recommended to use the device by its ID rather than via /dev/ttyUSB0, as this designation often changes
+port = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_44:1B:F6:6F:15:68-if00"
+baudrate = 115200 # optional, default: 115200
+
+# Required when meshcore.connection is "ble"
+[meshcore.ble]
+address = "12:34:56:78:90:AB"
+pin = "123465" # optional
+device = "hci1" # optional, default: hci0
+
+# Required when meshcore.connection is "tcp"
+[meshcore.tcp]
+host = "192.168.1.100"
+port = 4000
 
 [[sync]]
 matrix_room_id = "!Phel3ohTh5quie7fee:example.org"

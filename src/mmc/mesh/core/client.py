@@ -19,6 +19,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
+from dataclasses import dataclass
 from inspect import isawaitable
 from types import TracebackType
 from typing import Self, cast
@@ -32,6 +33,25 @@ from .exceptions import MeshCoreException
 
 MessageListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class SerialConnection:
+    port: str
+    baudrate: int
+
+
+@dataclass(frozen=True)
+class BLEConnection:
+    address: str
+    pin: str | None
+    device: str | None
+
+
+@dataclass(frozen=True)
+class TCPConnection:
+    host: str
+    port: int
 
 
 class MeshCoreClient:
@@ -52,15 +72,48 @@ class MeshCoreClient:
         await self.disconnect()
 
     @classmethod
-    async def create(cls, serial_bus: str) -> MeshCoreClient:
-        logger.info("Connecting to MeshCore device on %s", serial_bus)
+    async def create(cls, connection: SerialConnection | BLEConnection | TCPConnection) -> MeshCoreClient:
+        if isinstance(connection, SerialConnection):
+            return cls(await cls._connect_serial(connection))
+        elif isinstance(connection, BLEConnection):
+            return cls(await cls._connect_ble(connection))
+        else:
+            return cls(await cls._connect_tcp(connection))
+
+    @classmethod
+    async def _connect_serial(cls, connection: SerialConnection) -> MeshCore:
+        logger.info("Connecting to MeshCore device on %s", connection.port)
         client = await cast(
-            Callable[[str], Coroutine[object, object, MeshCore | None]],
+            Callable[[str, int], Coroutine[object, object, MeshCore | None]],
             MeshCore.create_serial,
-        )(serial_bus)
+        )(connection.port, connection.baudrate)
         if client is None:
-            raise MeshCoreException(f"Failed to create MeshCore client on {serial_bus}")
-        return cls(client)
+            raise MeshCoreException(f"Failed to establish a MeshCore connection with serial port {connection.port}")
+        return client
+
+    @classmethod
+    async def _connect_ble(cls, connection: BLEConnection) -> MeshCore:
+        logger.info("Connecting to BLE MeshCore device on %s", connection.address)
+        client = await cast(
+            Callable[..., Coroutine[object, object, MeshCore | None]],
+            MeshCore.create_ble,
+        )(connection.address, device=connection.device, pin=connection.pin)
+        if client is None:
+            raise MeshCoreException(f"Failed to establish a MeshCore BLE connection on {connection.address}")
+        return client
+
+    @classmethod
+    async def _connect_tcp(cls, connection: TCPConnection) -> MeshCore:
+        logger.info("Connecting to MeshCore device via TCP on %s:%i", connection.host, connection.port)
+        client = await cast(
+            Callable[[str, int], Coroutine[object, object, MeshCore | None]],
+            MeshCore.create_tcp,
+        )(connection.host, connection.port)
+        if client is None:
+            raise MeshCoreException(
+                f"Failed to establish a TCP connection with MeshCore device on {connection.host}:{connection.port}"
+            )
+        return client
 
     async def disconnect(self):
         logger.info("Disconnecting MeshCore client")

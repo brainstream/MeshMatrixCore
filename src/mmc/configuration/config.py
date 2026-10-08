@@ -21,6 +21,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import NotRequired, TypedDict, TypeGuard, cast
 
+from mmc.mesh.core import BLEConnection, SerialConnection, TCPConnection
+
 from .exceptions import ConfigurationError
 
 _SECTION_MATRIX = "matrix"
@@ -28,31 +30,48 @@ _SECTION_MESHCORE = "meshcore"
 _SECTION_SYNC = "sync"
 _SECTION_LOGGING = "logging"
 
-_HOMESERVER = "homeserver"
-_ACCESS_TOKEN = "access_token"
-_SERIAL_PORT = "serial_port"
-_MATRIX_ROOM_ID = "matrix_room_id"
-_MESHCORE_CHANNEL_IDX = "meshcore_channel_idx"
+_KEY_MATRIX_HOMESERVER = "homeserver"
+_KEY_MATRIX_ACCESS_TOKEN = "access_token"
+
+_KEY_MESHCORE_CONNECTION = "connection"
+_VALUE_MESHCORE_CONNECTION_SERIAL = "serial"
+_VALUE_MESHCORE_CONNECTION_BLE = "ble"
+_VALUE_MESHCORE_CONNECTION_TCP = "tcp"
+
+_KEY_MESHCORE_SERIAL_PORT = "port"
+_KEY_MESHCORE_SERIAL_BAUDRATE = "baudrate"
+
+_KEY_MESHCORE_BE_ADDRESS = "address"
+_KEY_MESHCORE_BE_PIN = "pin"
+_KEY_MESHCORE_BE_DEVICE = "device"
+
+_KEY_MESHCORE_TCP_HOST = "host"
+_KEY_MESHCORE_TCP_PORT = "port"
+
+_KEY_SYNC_MATRIX_ROOM_ID = "matrix_room_id"
+_KEY_SYNC_MESHCORE_CHANNEL_IDX = "meshcore_channel_idx"
+
+_DEFAULT_SERIAL_BAUDRATE = 115200
 
 
-class _MatrixConfig(TypedDict):
+class MatrixConfig(TypedDict):
     homeserver: str
     access_token: str
 
 
-class _MeshCoreConfig(TypedDict):
-    serial_port: str
+class MeshCoreConfig(TypedDict):
+    connection: SerialConnection | BLEConnection | TCPConnection
 
 
-class _SyncConfig(TypedDict):
+class SyncConfig(TypedDict):
     matrix_room_id: str
     meshcore_channel_idx: int
 
 
 class Config(TypedDict):
-    matrix: _MatrixConfig
-    meshcore: _MeshCoreConfig
-    sync: list[_SyncConfig]
+    matrix: MatrixConfig
+    meshcore: MeshCoreConfig
+    sync: list[SyncConfig]
     logging: NotRequired[dict[str, str]]
 
 
@@ -67,12 +86,14 @@ def _parse_config(raw_config: Mapping[str, object]) -> Config:
     sync_entries = _require_array(raw_config, _SECTION_SYNC)
 
     config = Config(
-        matrix=_MatrixConfig(
-            homeserver=_require_str(matrix.get(_HOMESERVER), f"{_SECTION_MATRIX}.{_HOMESERVER}"),
-            access_token=_require_str(matrix.get(_ACCESS_TOKEN), f"{_SECTION_MATRIX}.{_ACCESS_TOKEN}"),
+        matrix=MatrixConfig(
+            homeserver=_require_str(matrix.get(_KEY_MATRIX_HOMESERVER), f"{_SECTION_MATRIX}.{_KEY_MATRIX_HOMESERVER}"),
+            access_token=_require_str(
+                matrix.get(_KEY_MATRIX_ACCESS_TOKEN), f"{_SECTION_MATRIX}.{_KEY_MATRIX_ACCESS_TOKEN}"
+            ),
         ),
-        meshcore=_MeshCoreConfig(
-            serial_port=_require_str(meshcore.get(_SERIAL_PORT), f"{_SECTION_MESHCORE}.{_SERIAL_PORT}"),
+        meshcore=MeshCoreConfig(
+            connection=_parse_meshcore_connection(meshcore),
         ),
         sync=[_parse_sync_entry(index, entry) for index, entry in enumerate(sync_entries)],
     )
@@ -81,6 +102,65 @@ def _parse_config(raw_config: Mapping[str, object]) -> Config:
     if logging_table is not None:
         config[_SECTION_LOGGING] = _parse_logging(logging_table)
     return config
+
+
+def _parse_meshcore_connection(meshcore: Mapping[str, object]) -> SerialConnection | BLEConnection | TCPConnection:
+    connection_type = _require_str(
+        meshcore.get(_KEY_MESHCORE_CONNECTION), f"{_SECTION_MESHCORE}.{_KEY_MESHCORE_CONNECTION}"
+    )
+    if connection_type == _VALUE_MESHCORE_CONNECTION_SERIAL:
+        serial = _require_table(meshcore, _VALUE_MESHCORE_CONNECTION_SERIAL)
+        baudrate = serial.get(_KEY_MESHCORE_SERIAL_BAUDRATE, _DEFAULT_SERIAL_BAUDRATE)
+        return SerialConnection(
+            port=_require_str(
+                serial.get(_KEY_MESHCORE_SERIAL_PORT),
+                f"{_SECTION_MESHCORE}.{_VALUE_MESHCORE_CONNECTION_SERIAL}.{_KEY_MESHCORE_SERIAL_PORT}",
+            ),
+            baudrate=_require_int(
+                baudrate, f"{_SECTION_MESHCORE}.{_VALUE_MESHCORE_CONNECTION_SERIAL}.{_KEY_MESHCORE_SERIAL_BAUDRATE}"
+            ),
+        )
+    if connection_type == _VALUE_MESHCORE_CONNECTION_BLE:
+        ble = _require_table(meshcore, _VALUE_MESHCORE_CONNECTION_BLE)
+        return BLEConnection(
+            address=_require_str(
+                ble.get(_KEY_MESHCORE_BE_ADDRESS),
+                f"{_SECTION_MESHCORE}.{_VALUE_MESHCORE_CONNECTION_BLE}.{_KEY_MESHCORE_BE_ADDRESS}",
+            ),
+            pin=_optional_str(
+                ble.get(_KEY_MESHCORE_BE_PIN),
+                f"{_SECTION_MESHCORE}.{_VALUE_MESHCORE_CONNECTION_BLE}.{_KEY_MESHCORE_BE_PIN}",
+            ),
+            device=_optional_str(
+                ble.get(_KEY_MESHCORE_BE_DEVICE),
+                f"{_SECTION_MESHCORE}.{_VALUE_MESHCORE_CONNECTION_BLE}.{_KEY_MESHCORE_BE_DEVICE}",
+            ),
+        )
+    if connection_type == _VALUE_MESHCORE_CONNECTION_TCP:
+        tcp = _require_table(meshcore, _VALUE_MESHCORE_CONNECTION_TCP)
+        return TCPConnection(
+            host=_require_str(
+                tcp.get(_KEY_MESHCORE_TCP_HOST),
+                f"{_SECTION_MESHCORE}.{_VALUE_MESHCORE_CONNECTION_TCP}.{_KEY_MESHCORE_TCP_HOST}",
+            ),
+            port=_require_int(
+                tcp.get(_KEY_MESHCORE_SERIAL_PORT),
+                f"{_SECTION_MESHCORE}.{_VALUE_MESHCORE_CONNECTION_TCP}.{_KEY_MESHCORE_TCP_PORT}",
+            ),
+        )
+    raise ConfigurationError(
+        f"Invalid configuration value for '{_SECTION_MESHCORE}.{_KEY_MESHCORE_CONNECTION}': {connection_type!r}; "
+        + f"expected '{_VALUE_MESHCORE_CONNECTION_SERIAL}', '{_VALUE_MESHCORE_CONNECTION_BLE}', "
+        + f"or '{_VALUE_MESHCORE_CONNECTION_TCP}'"
+    )
+
+
+def _optional_str(value: object, path: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ConfigurationError(f"Configuration key {path!r} is not a string")
+    return value
 
 
 def _require_table(config: Mapping[str, object], name: str) -> Mapping[str, object]:
@@ -111,13 +191,15 @@ def _require_str(value: object, path: str) -> str:
     return value
 
 
-def _parse_sync_entry(index: int, entry: object) -> _SyncConfig:
+def _parse_sync_entry(index: int, entry: object) -> SyncConfig:
     entry_path = f"{_SECTION_SYNC}[{index}]"
     if not _is_table(entry):
         raise ConfigurationError(f"Configuration entry {entry_path} is not a table")
-    return _SyncConfig(
-        matrix_room_id=_require_str(entry.get(_MATRIX_ROOM_ID), f"{entry_path}.{_MATRIX_ROOM_ID}"),
-        meshcore_channel_idx=_require_int(entry.get(_MESHCORE_CHANNEL_IDX), f"{entry_path}.{_MESHCORE_CHANNEL_IDX}"),
+    return SyncConfig(
+        matrix_room_id=_require_str(entry.get(_KEY_SYNC_MATRIX_ROOM_ID), f"{entry_path}.{_KEY_SYNC_MATRIX_ROOM_ID}"),
+        meshcore_channel_idx=_require_int(
+            entry.get(_KEY_SYNC_MESHCORE_CHANNEL_IDX), f"{entry_path}.{_KEY_SYNC_MESHCORE_CHANNEL_IDX}"
+        ),
     )
 
 

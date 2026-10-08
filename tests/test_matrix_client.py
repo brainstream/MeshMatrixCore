@@ -25,8 +25,7 @@ from nio import AsyncClient, Event, RoomMessage, RoomMessageText, SyncError
 from nio import MatrixRoom as NioMatrixRoom
 from nio.responses import RoomSendError
 
-from mmc.matrix.client import MatrixClient
-from mmc.matrix.exceptions import MatrixException
+from mmc.matrix import MatrixClient, MatrixException
 from mmc.message import MatrixMessage, MatrixMessageToSend, MatrixRoom, MatrixUser
 
 EventCallback = Callable[[NioMatrixRoom, Event], Awaitable[None]]

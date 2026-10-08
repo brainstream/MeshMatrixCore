@@ -98,7 +98,7 @@ async def run(config_path: Path) -> int:
 
     async with (
         await MatrixClient.create(matrix_config["homeserver"], matrix_config["access_token"]) as matrix,
-        await MeshCoreClient.create(meshcore_config["serial_port"]) as meshcore,
+        await MeshCoreClient.create(meshcore_config["connection"]) as meshcore,
     ):
         synchronizer = Synchronizer(matrix, meshcore, rules)
         try:

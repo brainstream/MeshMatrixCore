@@ -24,6 +24,7 @@ import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 
 from mmc.configuration import ConfigurationError, configure_logging, load_config
+from mmc.mesh.core import BLEConnection, SerialConnection, TCPConnection
 
 
 class _FakeFilesystem(Protocol):
@@ -31,7 +32,7 @@ class _FakeFilesystem(Protocol):
 
 
 _VALID_MATRIX = "[matrix]\n" + 'homeserver = "https://matrix.example.org"\n' + 'access_token = "token"\n'
-_VALID_MESHCORE = "[meshcore]\n" + 'serial_port = "/dev/ttyUSB0"\n'
+_VALID_MESHCORE = '[meshcore]\nconnection = "serial"\n[meshcore.serial]\nport = "/dev/ttyUSB0"\nbaudrate = 115200\n'
 _VALID_SYNC = "[[sync]]\n" + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
 
 
@@ -53,7 +54,10 @@ def test_load_config_reads_config_toml_from_current_directory(
             + 'homeserver = "https://matrix.example.org"\n'
             + 'access_token = "token"\n'
             + "[meshcore]\n"
-            + 'serial_port = "/dev/ttyUSB0"\n'
+            + 'connection = "serial"\n'
+            + "[meshcore.serial]\n"
+            + 'port = "/dev/ttyUSB0"\n'
+            + "baudrate = 115200\n"
             + "[[sync]]\n"
             + 'matrix_room_id = "!room:example.org"\n'
             + "meshcore_channel_idx = 3\n"
@@ -66,7 +70,7 @@ def test_load_config_reads_config_toml_from_current_directory(
             "homeserver": "https://matrix.example.org",
             "access_token": "token",
         },
-        "meshcore": {"serial_port": "/dev/ttyUSB0"},
+        "meshcore": {"connection": SerialConnection(port="/dev/ttyUSB0", baudrate=115200)},
         "sync": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
     }
 
@@ -108,6 +112,35 @@ def test_load_config_raises_when_sync_entry_is_not_a_table(fs: FakeFilesystem) -
         _ = load_config(Path("config.toml"))
 
 
+def test_load_config_parses_ble_connection(fs: FakeFilesystem) -> None:
+    meshcore = '[meshcore]\nconnection = "ble"\n[meshcore.ble]\naddress = "12:34:56:78:90:AB"\n'
+    _write_config_file(fs, _VALID_MATRIX + meshcore + _VALID_SYNC)
+
+    assert load_config(Path("config.toml"))["meshcore"]["connection"] == BLEConnection(
+        address="12:34:56:78:90:AB",
+        pin=None,
+        device=None,
+    )
+
+
+def test_load_config_parses_tcp_connection(fs: FakeFilesystem) -> None:
+    meshcore = '[meshcore]\nconnection = "tcp"\n[meshcore.tcp]\nhost = "192.168.1.100"\nport = 4000\n'
+    _write_config_file(fs, _VALID_MATRIX + meshcore + _VALID_SYNC)
+
+    assert load_config(Path("config.toml"))["meshcore"]["connection"] == TCPConnection(
+        host="192.168.1.100",
+        port=4000,
+    )
+
+
+def test_load_config_rejects_unknown_meshcore_connection(fs: FakeFilesystem) -> None:
+    meshcore = '[meshcore]\nconnection = "bluetooth"\n'
+    _write_config_file(fs, _VALID_MATRIX + meshcore + _VALID_SYNC)
+
+    with pytest.raises(ConfigurationError, match="expected 'serial', 'ble', or 'tcp'"):
+        _ = load_config(Path("config.toml"))
+
+
 def test_load_config_allows_omitting_optional_logging_section(fs: FakeFilesystem) -> None:
     _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + _VALID_SYNC)
 
@@ -116,7 +149,7 @@ def test_load_config_allows_omitting_optional_logging_section(fs: FakeFilesystem
             "homeserver": "https://matrix.example.org",
             "access_token": "token",
         },
-        "meshcore": {"serial_port": "/dev/ttyUSB0"},
+        "meshcore": {"connection": SerialConnection(port="/dev/ttyUSB0", baudrate=115200)},
         "sync": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
     }
 

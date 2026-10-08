@@ -16,7 +16,7 @@
 #                                                                                              #
 ################################################################################################
 
-from .client import MeshCoreClient
+from .client import BLEConnection, MeshCoreClient, SerialConnection, TCPConnection
 from .exceptions import MeshCoreException
 
-__all__ = ["MeshCoreClient", "MeshCoreException"]
+__all__ = ["BLEConnection", "MeshCoreClient", "MeshCoreException", "SerialConnection", "TCPConnection"]

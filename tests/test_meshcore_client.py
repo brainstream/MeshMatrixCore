@@ -24,8 +24,7 @@ import pytest
 from meshcore import EventType, MeshCore
 from meshcore.events import Event, Subscription
 
-from mmc.mesh.core.client import MeshCoreClient
-from mmc.mesh.core.exceptions import MeshCoreException
+from mmc.mesh.core import BLEConnection, MeshCoreClient, MeshCoreException, SerialConnection, TCPConnection
 from mmc.message import MeshCoreMessage, MeshCoreMessageToSend
 
 EventCallback = Callable[[Event], asyncio.Future[None] | None]
@@ -96,23 +95,72 @@ def make_harness() -> MeshCoreClientHarness:
 def test_create_wraps_serial_client(monkeypatch: pytest.MonkeyPatch) -> None:
     meshcore = MeshCoreStub()
 
-    async def create_serial(serial_bus: str) -> MeshCore:
+    async def create_serial(serial_bus: str, baudrate: int) -> MeshCore:
         assert serial_bus == "/dev/ttyUSB0"
+        assert baudrate == 115200
         return cast(MeshCore, cast(object, meshcore))
 
     monkeypatch.setattr(MeshCore, "create_serial", create_serial)
 
-    _client = asyncio.run(MeshCoreClient.create("/dev/ttyUSB0"))
+    _client = asyncio.run(MeshCoreClient.create(SerialConnection("/dev/ttyUSB0", 115200)))
 
 
 def test_create_raises_when_serial_client_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def create_serial(_serial_bus: str) -> None:
+    async def create_serial(_serial_bus: str, _baudrate: int) -> None:
         return None
 
     monkeypatch.setattr(MeshCore, "create_serial", create_serial)
 
-    with pytest.raises(MeshCoreException, match="Failed to create MeshCore client"):
-        _ = asyncio.run(MeshCoreClient.create("/dev/ttyUSB0"))
+    with pytest.raises(MeshCoreException, match="Failed to establish a MeshCore connection with serial port"):
+        _ = asyncio.run(MeshCoreClient.create(SerialConnection("/dev/ttyUSB0", 115200)))
+
+
+def test_create_wraps_ble_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    meshcore = MeshCoreStub()
+
+    async def create_ble(address: str, *, device: str | None, pin: str | None) -> MeshCore:
+        assert address == "12:34:56:78:90:AB"
+        assert device == "hci1"
+        assert pin == "123465"
+        return cast(MeshCore, cast(object, meshcore))
+
+    monkeypatch.setattr(MeshCore, "create_ble", create_ble)
+
+    _client = asyncio.run(MeshCoreClient.create(BLEConnection("12:34:56:78:90:AB", "123465", "hci1")))
+
+
+def test_create_raises_when_ble_client_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def create_ble(_address: str, *, device: str | None, pin: str | None) -> None:
+        assert device is None
+        assert pin is None
+
+    monkeypatch.setattr(MeshCore, "create_ble", create_ble)
+
+    with pytest.raises(MeshCoreException, match="Failed to establish a MeshCore BLE connection on"):
+        _ = asyncio.run(MeshCoreClient.create(BLEConnection("12:34:56:78:90:AB", None, None)))
+
+
+def test_create_wraps_tcp_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    meshcore = MeshCoreStub()
+
+    async def create_tcp(host: str, port: int) -> MeshCore:
+        assert host == "192.168.1.100"
+        assert port == 4000
+        return cast(MeshCore, cast(object, meshcore))
+
+    monkeypatch.setattr(MeshCore, "create_tcp", create_tcp)
+
+    _client = asyncio.run(MeshCoreClient.create(TCPConnection("192.168.1.100", 4000)))
+
+
+def test_create_raises_when_tcp_client_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def create_tcp(_host: str, _port: int) -> None:
+        return None
+
+    monkeypatch.setattr(MeshCore, "create_tcp", create_tcp)
+
+    with pytest.raises(MeshCoreException, match="Failed to establish a TCP connection with MeshCore device"):
+        _ = asyncio.run(MeshCoreClient.create(TCPConnection("192.168.1.100", 4000)))
 
 
 def test_run_subscribes_and_starts_fetching_without_extra_connect() -> None:
