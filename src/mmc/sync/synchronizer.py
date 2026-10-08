@@ -27,6 +27,7 @@ from mmc.message import MatrixMessage, MatrixMessageToSend, MeshCoreMessage, Mes
 logger = logging.getLogger(__name__)
 
 
+
 @dataclass
 class SynchronizationRule:
     matrix_room_id: str
@@ -34,12 +35,19 @@ class SynchronizationRule:
 
 
 class Synchronizer:
-    def __init__(self, matrix: MatrixClient, meshcore: MeshCoreClient, rules: list[SynchronizationRule]):
+    def __init__(
+        self,
+        matrix: MatrixClient,
+        meshcore: MeshCoreClient,
+        rules: list[SynchronizationRule],
+        fanout: bool = False,
+    ):
         self._matrix: MatrixClient = matrix
         self._meshcore: MeshCoreClient = meshcore
         self._rules: list[SynchronizationRule] = rules
         self._matrix.add_message_listener(self._on_matrix_message)
         self._meshcore.add_message_listener(self._on_meshcore_message)
+        self._fanout: bool = fanout
 
     async def _on_matrix_message(self, message: MatrixMessage):
         for rule in self._rules:
@@ -62,7 +70,9 @@ class Synchronizer:
                     rule.meshcore_channel_idx,
                 )
                 raise
-            return
+
+            if not self._fanout:
+                return
 
     async def _on_meshcore_message(self, message: MeshCoreMessage):
         for rule in self._rules:
@@ -84,7 +94,9 @@ class Synchronizer:
                     rule.matrix_room_id,
                 )
                 raise
-            return
+
+            if not self._fanout:
+                return
 
     async def run(self):
         logger.info("Running synchronizer with %d synchronization rule(s)", len(self._rules))

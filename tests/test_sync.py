@@ -91,6 +91,7 @@ def test_registers_message_handlers_on_both_clients() -> None:
 
 def make_synchronizer(
     rules: list[SynchronizationRule] | None = None,
+    fanout: bool = False,
 ) -> tuple[_MatrixClientStub, _MeshCoreClientStub, Synchronizer]:
     matrix = _MatrixClientStub()
     meshcore = _MeshCoreClientStub()
@@ -98,6 +99,7 @@ def make_synchronizer(
         cast(MatrixClient, cast(object, matrix)),
         cast(MeshCoreClient, cast(object, meshcore)),
         rules if rules is not None else [make_rule()],
+        fanout=fanout,
     )
     return matrix, meshcore, synchronizer
 
@@ -148,7 +150,20 @@ def test_forwards_matrix_message_to_matching_meshcore_channel() -> None:
     assert meshcore.sent_messages == [MeshCoreMessageToSend(channel=7, chunks=["⚛ Alice\nHello from Matrix"])]
 
 
-def test_forwards_matrix_message_from_bridge_user() -> None:
+def test_fanout_forwards_matrix_message_to_all_matching_meshcore_channels() -> None:
+    rules = [
+        SynchronizationRule(matrix_room_id="!room:example.org", meshcore_channel_idx=7),
+        SynchronizationRule(matrix_room_id="!room:example.org", meshcore_channel_idx=8),
+    ]
+    matrix, meshcore, _ = make_synchronizer(rules=rules, fanout=True)
+
+    dispatch_matrix_message(matrix, make_matrix_message())
+
+    assert meshcore.sent_messages == [
+        MeshCoreMessageToSend(channel=7, chunks=["⚛ Alice\nHello from Matrix"]),
+        MeshCoreMessageToSend(channel=8, chunks=["⚛ Alice\nHello from Matrix"]),
+    ]
+
     matrix, meshcore, _ = make_synchronizer()
 
     dispatch_matrix_message(matrix, make_matrix_message(sender_id="@bridge:example.org"))
@@ -192,7 +207,20 @@ def test_forwards_meshcore_message_to_matching_matrix_room() -> None:
     ]
 
 
-def test_forwards_meshcore_message_from_bridge_user() -> None:
+def test_fanout_forwards_meshcore_message_to_all_matching_matrix_rooms() -> None:
+    rules = [
+        SynchronizationRule(matrix_room_id="!room-one:example.org", meshcore_channel_idx=7),
+        SynchronizationRule(matrix_room_id="!room-two:example.org", meshcore_channel_idx=7),
+    ]
+    matrix, meshcore, _ = make_synchronizer(rules=rules, fanout=True)
+
+    dispatch_meshcore_message(meshcore, make_meshcore_message())
+
+    assert [message.room for message in matrix.sent_messages] == [
+        "!room-one:example.org",
+        "!room-two:example.org",
+    ]
+
     matrix, meshcore, _ = make_synchronizer()
 
     dispatch_meshcore_message(meshcore, make_meshcore_message(sender="bridge-node"))

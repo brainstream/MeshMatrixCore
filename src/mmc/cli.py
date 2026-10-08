@@ -91,7 +91,7 @@ async def run(config_path: Path) -> int:
             matrix_room_id=rule["matrix_room_id"],
             meshcore_channel_idx=rule["meshcore_channel_idx"],
         )
-        for rule in config["sync"]
+        for rule in config["sync"]["rule"]
     ]
 
     logger.info("Loaded %d synchronization rule(s)", len(rules))
@@ -100,7 +100,7 @@ async def run(config_path: Path) -> int:
         await MatrixClient.create(matrix_config["homeserver"], matrix_config["access_token"]) as matrix,
         await MeshCoreClient.create(meshcore_config["connection"]) as meshcore,
     ):
-        synchronizer = Synchronizer(matrix, meshcore, rules)
+        synchronizer = Synchronizer(matrix, meshcore, rules, fanout=config["sync"]["fanout"])
         try:
             logger.info("Starting Matrix and MeshCore synchronization")
             await synchronizer.run()

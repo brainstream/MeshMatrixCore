@@ -25,6 +25,9 @@ device = "hci1" # optional, default: hci0
 host = "192.168.1.100"
 port = 4000
 
-[[sync]]
+[sync]
+fanout = false # default: false
+
+[[sync.rule]]
 matrix_room_id = "!Phel3ohTh5quie7fee:example.org"
 meshcore_channel_idx = 1

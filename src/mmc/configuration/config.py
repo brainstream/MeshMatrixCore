@@ -48,10 +48,13 @@ _KEY_MESHCORE_BE_DEVICE = "device"
 _KEY_MESHCORE_TCP_HOST = "host"
 _KEY_MESHCORE_TCP_PORT = "port"
 
+_KEY_SYNC_FANOUT = "fanout"
+_KEY_SYNC_RULE = "rule"
 _KEY_SYNC_MATRIX_ROOM_ID = "matrix_room_id"
 _KEY_SYNC_MESHCORE_CHANNEL_IDX = "meshcore_channel_idx"
 
 _DEFAULT_SERIAL_BAUDRATE = 115200
+_DEFAULT_SYNC_FANOUT = False
 
 
 class MatrixConfig(TypedDict):
@@ -63,15 +66,20 @@ class MeshCoreConfig(TypedDict):
     connection: SerialConnection | BLEConnection | TCPConnection
 
 
-class SyncConfig(TypedDict):
+class SyncRuleConfig(TypedDict):
     matrix_room_id: str
     meshcore_channel_idx: int
+
+
+class SyncConfig(TypedDict):
+    fanout: bool
+    rule: list[SyncRuleConfig]
 
 
 class Config(TypedDict):
     matrix: MatrixConfig
     meshcore: MeshCoreConfig
-    sync: list[SyncConfig]
+    sync: SyncConfig
     logging: NotRequired[dict[str, str]]
 
 
@@ -83,7 +91,11 @@ def load_config(path: Path) -> Config:
 def _parse_config(raw_config: Mapping[str, object]) -> Config:
     matrix = _require_table(raw_config, _SECTION_MATRIX)
     meshcore = _require_table(raw_config, _SECTION_MESHCORE)
-    sync_entries = _require_array(raw_config, _SECTION_SYNC)
+    sync = _require_table(raw_config, _SECTION_SYNC)
+    sync_entries = _require_array(sync, _KEY_SYNC_RULE)
+    fanout = sync.get(_KEY_SYNC_FANOUT, _DEFAULT_SYNC_FANOUT)
+    if not isinstance(fanout, bool):
+        raise ConfigurationError(f"Configuration key '{_SECTION_SYNC}.{_KEY_SYNC_FANOUT}' is not a boolean")
 
     config = Config(
         matrix=MatrixConfig(
@@ -95,7 +107,10 @@ def _parse_config(raw_config: Mapping[str, object]) -> Config:
         meshcore=MeshCoreConfig(
             connection=_parse_meshcore_connection(meshcore),
         ),
-        sync=[_parse_sync_entry(index, entry) for index, entry in enumerate(sync_entries)],
+        sync=SyncConfig(
+            fanout=fanout,
+            rule=[_parse_sync_entry(index, entry) for index, entry in enumerate(sync_entries)],
+        ),
     )
 
     logging_table = raw_config.get(_SECTION_LOGGING)
@@ -191,11 +206,11 @@ def _require_str(value: object, path: str) -> str:
     return value
 
 
-def _parse_sync_entry(index: int, entry: object) -> SyncConfig:
-    entry_path = f"{_SECTION_SYNC}[{index}]"
+def _parse_sync_entry(index: int, entry: object) -> SyncRuleConfig:
+    entry_path = f"{_SECTION_SYNC}.{_KEY_SYNC_RULE}[{index}]"
     if not _is_table(entry):
         raise ConfigurationError(f"Configuration entry {entry_path} is not a table")
-    return SyncConfig(
+    return SyncRuleConfig(
         matrix_room_id=_require_str(entry.get(_KEY_SYNC_MATRIX_ROOM_ID), f"{entry_path}.{_KEY_SYNC_MATRIX_ROOM_ID}"),
         meshcore_channel_idx=_require_int(
             entry.get(_KEY_SYNC_MESHCORE_CHANNEL_IDX), f"{entry_path}.{_KEY_SYNC_MESHCORE_CHANNEL_IDX}"

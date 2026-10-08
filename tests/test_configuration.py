@@ -33,7 +33,7 @@ class _FakeFilesystem(Protocol):
 
 _VALID_MATRIX = "[matrix]\n" + 'homeserver = "https://matrix.example.org"\n' + 'access_token = "token"\n'
 _VALID_MESHCORE = '[meshcore]\nconnection = "serial"\n[meshcore.serial]\nport = "/dev/ttyUSB0"\nbaudrate = 115200\n'
-_VALID_SYNC = "[[sync]]\n" + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
+_VALID_SYNC = '[sync]\nfanout = false\n[[sync.rule]]\n' + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
 
 
 def _write_config_file(fs: FakeFilesystem, contents: str) -> None:
@@ -58,7 +58,9 @@ def test_load_config_reads_config_toml_from_current_directory(
             + "[meshcore.serial]\n"
             + 'port = "/dev/ttyUSB0"\n'
             + "baudrate = 115200\n"
-            + "[[sync]]\n"
+            + "[sync]\n"
+            + "fanout = true\n"
+            + "[[sync.rule]]\n"
             + 'matrix_room_id = "!room:example.org"\n'
             + "meshcore_channel_idx = 3\n"
         ),
@@ -71,7 +73,10 @@ def test_load_config_reads_config_toml_from_current_directory(
             "access_token": "token",
         },
         "meshcore": {"connection": SerialConnection(port="/dev/ttyUSB0", baudrate=115200)},
-        "sync": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
+        "sync": {
+            "fanout": True,
+            "rule": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
+        },
     }
 
 
@@ -90,25 +95,33 @@ def test_load_config_raises_when_required_key_is_missing(fs: FakeFilesystem) -> 
         _ = load_config(Path("config.toml"))
 
 
-def test_load_config_raises_when_sync_array_is_missing(fs: FakeFilesystem) -> None:
-    _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE)
+def test_load_config_raises_when_sync_rule_array_is_missing(fs: FakeFilesystem) -> None:
+    _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + "[sync]\n")
 
-    with pytest.raises(ConfigurationError, match=r"Configuration array 'sync' is missing"):
+    with pytest.raises(ConfigurationError, match=r"Configuration array 'rule' is missing"):
+        _ = load_config(Path("config.toml"))
+
+
+def test_load_config_raises_when_fanout_is_not_a_boolean(fs: FakeFilesystem) -> None:
+    invalid_sync = '[sync]\nfanout = "yes"\n[[sync.rule]]\n' + 'matrix_room_id = "!room:example.org"\n' + "meshcore_channel_idx = 3\n"
+    _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + invalid_sync)
+
+    with pytest.raises(ConfigurationError, match=r"Configuration key 'sync\.fanout' is not a boolean"):
         _ = load_config(Path("config.toml"))
 
 
 def test_load_config_raises_when_channel_index_is_not_an_integer(fs: FakeFilesystem) -> None:
-    invalid_sync = "[[sync]]\n" + 'matrix_room_id = "!room:example.org"\n' + 'meshcore_channel_idx = "three"\n'
+    invalid_sync = '[sync]\n[[sync.rule]]\n' + 'matrix_room_id = "!room:example.org"\n' + 'meshcore_channel_idx = "three"\n'
     _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + invalid_sync)
 
-    with pytest.raises(ConfigurationError, match=r"'sync\[0\]\.meshcore_channel_idx'"):
+    with pytest.raises(ConfigurationError, match=r"'sync\.rule\[0\]\.meshcore_channel_idx'"):
         _ = load_config(Path("config.toml"))
 
 
-def test_load_config_raises_when_sync_entry_is_not_a_table(fs: FakeFilesystem) -> None:
-    _write_config_file(fs, "sync = [1]\n" + _VALID_MATRIX + _VALID_MESHCORE)
+def test_load_config_raises_when_sync_rule_entry_is_not_a_table(fs: FakeFilesystem) -> None:
+    _write_config_file(fs, _VALID_MATRIX + _VALID_MESHCORE + "[sync]\nrule = [1]\n")
 
-    with pytest.raises(ConfigurationError, match=r"Configuration entry sync\[0\] is not a table"):
+    with pytest.raises(ConfigurationError, match=r"Configuration entry sync\.rule\[0\] is not a table"):
         _ = load_config(Path("config.toml"))
 
 
@@ -150,7 +163,10 @@ def test_load_config_allows_omitting_optional_logging_section(fs: FakeFilesystem
             "access_token": "token",
         },
         "meshcore": {"connection": SerialConnection(port="/dev/ttyUSB0", baudrate=115200)},
-        "sync": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
+        "sync": {
+            "fanout": False,
+            "rule": [{"matrix_room_id": "!room:example.org", "meshcore_channel_idx": 3}],
+        },
     }
 
 
