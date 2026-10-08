@@ -1,33 +1,59 @@
+# MeshMatrixCore configuration example.
+# Copy this file to the path used by the service, then replace the example
+# values with your Matrix account and MeshCore device/network settings.
+# This file contains a Matrix access token: keep it private and restrict access,
+# for example with `chmod 600 config.toml` when it is stored as config.toml.
+
 [logging]
-level = "INFO" # DEBUG, INFO, WARNING, ERROR, or CRITICAL
+# Application log verbosity. Accepted values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+# Defaults to INFO when this section or key is omitted.
+level = "INFO"
 
 [matrix]
+# Base URL of the Matrix homeserver hosting the room(s) configured below.
 homeserver = "https://matrix.example.org"
+# Access token for the Matrix user that will send and receive bridged messages.
+# Treat this value as a password; do not commit a real token to version control.
 access_token = "YOUR_MATRIX_ACCESS_TOKEN"
 
 [meshcore]
-connection = "serial" # serial, ble, or tcp
+# Select exactly one transport for the MeshCore device: serial, ble, or tcp.
+# Only the corresponding [meshcore.<transport>] settings below are used.
+connection = "serial"
 
-# Required when meshcore.connection is "serial"
+# Used when meshcore.connection = "serial".
 [meshcore.serial]
-# It is recommended to use the device by its ID rather than via /dev/ttyUSB0, as this designation often changes
+# Serial device path. Prefer /dev/serial/by-id/... over /dev/ttyUSB0 where
+# available, because the by-id path is less likely to change after reconnects.
 port = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_44:1B:F6:6F:15:68-if00"
-baudrate = 115200 # optional, default: 115200
+# Serial line speed in bits per second. Defaults to 115200 when omitted.
+baudrate = 115200
 
-# Required when meshcore.connection is "ble"
+# Used when meshcore.connection = "ble".
 [meshcore.ble]
+# Bluetooth address of the MeshCore device.
 address = "12:34:56:78:90:AB"
-pin = "123465" # optional
-device = "hci1" # optional, default: hci0
+# Pairing PIN, if required by the device; omit when no PIN is needed.
+pin = "123465"
+# Bluetooth controller to use (for example, hci0). Defaults to hci0.
+device = "hci1"
 
-# Required when meshcore.connection is "tcp"
+# Used when meshcore.connection = "tcp".
 [meshcore.tcp]
+# Hostname or IP address of the MeshCore TCP endpoint.
 host = "192.168.1.100"
+# TCP port on which the MeshCore endpoint is listening.
 port = 4000
 
 [sync]
-fanout = false # default: false
+# When false, stop after the first matching rule; when true, forward to every
+# matching rule. Defaults to false when omitted.
+fanout = false
 
+# Each rule maps one Matrix room to one MeshCore channel, in both directions.
+# Add another [[sync.rule]] block for each additional room/channel mapping.
 [[sync.rule]]
+# Full Matrix room ID, including the homeserver suffix.
 matrix_room_id = "!Phel3ohTh5quie7fee:example.org"
+# MeshCore channel index as reported by the connected device.
 meshcore_channel_idx = 1
