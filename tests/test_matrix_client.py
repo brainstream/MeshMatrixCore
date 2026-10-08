@@ -239,7 +239,7 @@ def test_run_wraps_initial_sync_exception() -> None:
     failure = RuntimeError("connection failed")
     harness.nio.sync_error = failure
 
-    with pytest.raises(MatrixException, match="Initial Matrix sync request failed") as error:
+    with pytest.raises(MatrixException, match="Matrix history loading error") as error:
         asyncio.run(harness.start())
 
     assert error.value.__cause__ is failure
@@ -345,8 +345,13 @@ def test_sender_id_is_used_when_room_has_no_display_name_for_sender() -> None:
 
 def test_sends_unsupported_message_for_non_text_event() -> None:
     harness = make_harness()
+    harness.client.add_message_listener(lambda _message: None)
 
-    asyncio.run(harness.dispatch(make_room(), cast(Event, object())))
+    unsupported_event = cast(
+        Event,
+        cast(object, type("UnsupportedEvent", (), {"event_id": "$unsupported:example.org"})()),
+    )
+    asyncio.run(harness.dispatch(make_room(), unsupported_event))
 
     assert harness.nio.send_call == (
         "!room:example.org",

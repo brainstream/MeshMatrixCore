@@ -26,7 +26,7 @@ from mmc.configuration import ConfigurationError, configure_logging, load_config
 from mmc.exceptions import ExceptionBase
 from mmc.matrix import MatrixClient
 from mmc.mesh.core import MeshCoreClient
-from mmc.synchronizer import (
+from mmc.sync import (
     SynchronizationRule,
     Synchronizer,
 )

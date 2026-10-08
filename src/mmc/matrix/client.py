@@ -37,6 +37,7 @@ MessageListener = Callable[[MatrixMessage], Awaitable[None] | None]
 logger = logging.getLogger(__name__)
 _MATRIX_FORMAT_HTML = "org.matrix.custom.html"
 
+
 class MatrixClient:
     def __init__(self, client: AsyncClient, access_token: str):
         self._client: AsyncClient = client
@@ -90,17 +91,17 @@ class MatrixClient:
         logger.debug("Registered Matrix message listener %r", listener)
 
     async def run(self):
-        logger.info("Starting Matrix synchronization")
         try:
+            logger.info("Loading Matrix history")
             first_sync_result = await self._client.sync(timeout=30000)
         except Exception as err:
-            raise MatrixException("Initial Matrix sync request failed") from err
+            raise MatrixException("Matrix history loading error") from err
         if isinstance(first_sync_result, SyncError):
-            logger.error("Initial Matrix sync failed: %s", first_sync_result)
             raise MatrixException(f"First sync error: {first_sync_result}")
         self._client.add_event_callback(self._handle_message, RoomMessage)
-        logger.info("Matrix sync initialized; waiting for messages")
+
         try:
+            logger.info("Starting Matrix message handling")
             await self._client.sync_forever(timeout=30000, since=first_sync_result.next_batch)
         except Exception as err:
             raise MatrixException("Matrix sync stopped unexpectedly") from err
@@ -136,7 +137,6 @@ class MatrixClient:
                     message.room.id,
                     exc_info=err,
                 )
-
 
     def _map_message(self, room: NioMatrixRoom, event: RoomMessageText) -> MatrixMessage:
         text = strip_markdown(event.body) if event.format == _MATRIX_FORMAT_HTML else event.body

@@ -32,7 +32,7 @@ from mmc.message import (
     MeshCoreMessage,
     MeshCoreMessageToSend,
 )
-from mmc.synchronizer import SynchronizationRule, Synchronizer
+from mmc.sync import SynchronizationRule, Synchronizer
 
 MatrixListener = Callable[[MatrixMessage], Awaitable[None] | None]
 MeshCoreListener = Callable[[MeshCoreMessage], Awaitable[None] | None]
