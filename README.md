@@ -1,6 +1,6 @@
 # MeshMatrixCore
 
-MeshMatrixCore relays text messages between [Matrix](https://matrix.org/) rooms and MeshCore channels.
+MeshMatrixCore relays text messages between [Matrix](https://matrix.org/) rooms and [MeshCore](https://meshcore.io/) channels.
 
 ![MeshMatrixCore bridging a Matrix room and a MeshCore channel](screenshots/screenshots.png)
 
